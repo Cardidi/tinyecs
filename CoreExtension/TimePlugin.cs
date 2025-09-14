@@ -1,3 +1,5 @@
+using TinyECS.Core;
+
 namespace TinyECS.CoreExtension
 {
     public class TimePlugin<TWorld> : IPlugin<TWorld> where TWorld :World<TWorld>

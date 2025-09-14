@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using TinyECS.Core;
 
 namespace TinyECS.CoreExtension
 {
@@ -27,7 +28,7 @@ namespace TinyECS.CoreExtension
             IReadOnlyList<IPlugin<TWorld>> plugins, 
             IReadOnlyDictionary<object, object> envData)
         {
-            Unsafe.AsRef(Time) = GetPlugin<TimePlugin<TWorld>>();
+            Unsafe.AsRef(ref Time) = GetPlugin<TimePlugin<TWorld>>();
         }
     }
 }

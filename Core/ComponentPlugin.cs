@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+
 namespace TinyECS.Core
 {
     
@@ -127,9 +130,9 @@ namespace TinyECS.Core
         {
             var pos = Allocated;
             var capa = m_components.Length;
-            if (pos > Mathf.Floor(capa * AutoIncreaseTriggerEdge) || pos >= capa)
+            if (pos > MathF.Floor(capa * AutoIncreaseTriggerEdge) || pos >= capa)
             {
-                var newSize = Mathf.FloorToInt(Mathf.Max(pos + 1, Mathf.Round(capa * AutoIncreaseRate)));
+                var newSize = (int) MathF.Floor(MathF.Max(pos + 1, MathF.Round(capa * AutoIncreaseRate)));
                 Array.Resize(ref m_components, newSize);
             }
 

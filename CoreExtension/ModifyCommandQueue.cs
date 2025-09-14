@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace TinyECS.CoreExtension
 {
     public static class ModifyCommandPool

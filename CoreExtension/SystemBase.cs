@@ -1,3 +1,5 @@
+using TinyECS.Core;
+
 namespace TinyECS.CoreExtension
 {
     public abstract class SystemBase<TWorld> : IEntitySystem<TWorld> where TWorld : World<TWorld>
@@ -43,8 +45,6 @@ namespace TinyECS.CoreExtension
         {
             return null;
         }
-
-        private event Action test;
         
         public virtual void OnTick(TWorld world, float dt) {}
     }
