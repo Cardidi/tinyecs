@@ -16,7 +16,7 @@ namespace TinyECS
 
         public bool IsTickFinalized => SystemTickSchedule.Count == 0;
         
-        public void OnBuilt(TWorld world, 
+        public void OnConstruct(TWorld world, 
             IReadOnlyList<IPlugin<TWorld>> plugins,
             IReadOnlyList<ISystem<TWorld>> systems, 
             IReadOnlyDictionary<object, object> envData)
@@ -53,7 +53,7 @@ namespace TinyECS
                 var sys = Systems[i];
                 try
                 {
-                    sys.OnInitialized(world);
+                    sys.OnCreate(world);
                 }
                 catch (Exception e)
                 {
@@ -89,7 +89,7 @@ namespace TinyECS
                 var sys = Systems[i];
                 try
                 {
-                    sys.OnInitialized(world);
+                    sys.OnCreate(world);
                 }
                 catch (Exception e)
                 {

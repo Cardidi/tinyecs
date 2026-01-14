@@ -119,7 +119,7 @@ namespace TinyECS {
             for (var i = 0; i < plugins.Length; i++)
             {
                 var pl = plugins[i];
-                pl.OnBuilt(world, plugins, systems, dict);
+                pl.OnConstruct(world, plugins, systems, dict);
             }
             world.OnPostBuilt(systems, plugins, dict);
             

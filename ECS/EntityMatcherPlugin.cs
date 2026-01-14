@@ -31,7 +31,7 @@ namespace TinyECS
         public IReadOnlyCollection<IEntitySystem<TWorld>> ReactiveSystems => m_reactiveSystems;
         
         
-        public void OnBuilt(
+        public void OnConstruct(
             TWorld world,
             IReadOnlyList<IPlugin<TWorld>> plugins,
             IReadOnlyList<ISystem<TWorld>> systems,

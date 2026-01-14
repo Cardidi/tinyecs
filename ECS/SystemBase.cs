@@ -10,7 +10,7 @@ namespace TinyECS
 
         public virtual void OnEntityExcluded(IEntity graph, IEntityMatcher matcher, int matchIndex) {}
 
-        public virtual void OnInitialized(TWorld world)
+        public virtual void OnCreate(TWorld world)
         {
             World = world;
             var emp = world.GetPlugin<EntityMatcherPlugin<TWorld>>();
@@ -27,7 +27,7 @@ namespace TinyECS
 
         }
 
-        public virtual void OnDeinitialized(TWorld world)
+        public virtual void OnDestroy(TWorld world)
         {
             var emp = world.GetPlugin<EntityMatcherPlugin<TWorld>>();
             if (emp != null)

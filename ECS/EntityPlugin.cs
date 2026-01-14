@@ -23,7 +23,7 @@ namespace TinyECS
 
         public IReadOnlyDictionary<ulong, Entity> Entities => m_entities;
         
-        public void OnBuilt(TWorld world, 
+        public void OnConstruct(TWorld world, 
             IReadOnlyList<IPlugin<TWorld>> plugins,
             IReadOnlyList<ISystem<TWorld>> systems, 
             IReadOnlyDictionary<object, object> envData)

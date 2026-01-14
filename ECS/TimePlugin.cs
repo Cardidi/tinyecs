@@ -25,7 +25,7 @@ namespace TinyECS
             UnscaledTotalTime += UnscaledDeltaTime;
         }
 
-        public void OnBuilt(
+        public void OnConstruct(
             TWorld world,
             IReadOnlyList<IPlugin<TWorld>> plugins,
             IReadOnlyList<ISystem<TWorld>> systems,
