@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace TinyECS.Core.Helpers
+namespace TinyECS.Core.Vendor
 {
     public static class Assertion
     {

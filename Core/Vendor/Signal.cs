@@ -1,6 +1,6 @@
 // ReSharper disable ForCanBeConvertedToForeach
 
-namespace TinyECS.Core.Helpers
+namespace TinyECS.Core.Vendor
 {
     
     public delegate void Emitter<in THandler>(THandler h) where THandler : Delegate;
@@ -135,7 +135,7 @@ namespace TinyECS.Core.Helpers
             {
                 var exec = m_executed[i];
                 try { emitter(exec.Element); }
-                catch (Exception e) { Debug.LogException(e); }
+                catch (Exception e) { Log.Exp(e); }
             }
         }
 
@@ -150,7 +150,7 @@ namespace TinyECS.Core.Helpers
             {
                 var exec = m_executed[i];
                 try { emitter(exec.Element, arg1); }
-                catch (Exception e) { Debug.LogException(e); }
+                catch (Exception e) { Log.Exp(e); }
             }
         }
         
@@ -165,7 +165,7 @@ namespace TinyECS.Core.Helpers
             {
                 var exec = m_executed[i];
                 try { emitter(exec.Element, arg1, arg2); }
-                catch (Exception e) { Debug.LogException(e); }
+                catch (Exception e) { Log.Exp(e); }
             }
         }
 
@@ -180,7 +180,7 @@ namespace TinyECS.Core.Helpers
             {
                 var exec = m_executed[i];
                 try { emitter(exec.Element, arg1, arg2, arg3); }
-                catch (Exception e) { Debug.LogException(e); }
+                catch (Exception e) { Log.Exp(e); }
             }
         }
 
@@ -197,7 +197,7 @@ namespace TinyECS.Core.Helpers
             {
                 var exec = m_executed[i];
                 try { emitter(exec.Element, arg1, arg2, arg3, arg4); }
-                catch (Exception e) { Debug.LogException(e); }
+                catch (Exception e) { Log.Exp(e); }
             }
         }
         
@@ -214,7 +214,7 @@ namespace TinyECS.Core.Helpers
             {
                 var exec = m_executed[i];
                 try { emitter(exec.Element, arg1, arg2, arg3, arg4, arg5); }
-                catch (Exception e) { Debug.LogException(e); }
+                catch (Exception e) { Log.Exp(e); }
             }
         }
 
@@ -231,7 +231,7 @@ namespace TinyECS.Core.Helpers
             {
                 var exec = m_executed[i];
                 try { emitter(exec.Element, arg1, arg2, arg3, arg4, arg5, arg6); }
-                catch (Exception e) { Debug.LogException(e); }
+                catch (Exception e) { Log.Exp(e); }
             }
         }
 

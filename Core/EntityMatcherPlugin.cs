@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using TinyECS.Core.Vendor;
 
 // ReSharper disable ForCanBeConvertedToForeach
 
@@ -97,12 +98,12 @@ namespace TinyECS.Core
                 {
                     list.Add(graph);
                     try { system.OnEntityIncluded(graph, match, i); }
-                    catch (Exception e) { Debug.LogException(e); }
+                    catch (Exception e) { Log.Exp(e); }
                 }
                 else if (!isMatched && entityIdx >= 0)
                 {
                     try { system.OnEntityExcluded(graph, match, i); }
-                    catch (Exception e) { Debug.LogException(e); }
+                    catch (Exception e) { Log.Exp(e); }
                     list.RemoveAt(entityIdx);
                 }
             }

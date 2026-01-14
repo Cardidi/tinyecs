@@ -1,4 +1,4 @@
-namespace TinyECS.Core.Helpers
+namespace TinyECS.Core.Vendor
 {
     public class HashSetPool<T>
     {

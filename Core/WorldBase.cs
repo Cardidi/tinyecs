@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 namespace TinyECS.Core
 {
 
@@ -13,7 +11,9 @@ namespace TinyECS.Core
     public abstract class WorldBase<TWorld> : World<TWorld> where TWorld : WorldBase<TWorld>
     {
 
-        public readonly TimePlugin<TWorld> Time = null!;
+        public TimePlugin<TWorld> Time => m_time;
+
+        private TimePlugin<TWorld> m_time;
         
         protected WorldBase(WorldBuilder<TWorld> builder) : base(builder)
         {
@@ -27,7 +27,7 @@ namespace TinyECS.Core
             IReadOnlyList<IPlugin<TWorld>> plugins, 
             IReadOnlyDictionary<object, object> envData)
         {
-            Unsafe.AsRef(ref Time) = GetPlugin<TimePlugin<TWorld>>();
+            m_time = GetPlugin<TimePlugin<TWorld>>();
         }
     }
 }

@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using TinyECS.Core.Helpers;
+using TinyECS.Core.Vendor;
 
 namespace TinyECS.Core
 {
@@ -57,7 +57,7 @@ namespace TinyECS.Core
                 }
                 catch (Exception e)
                 {
-                    Debug.LogException(e);
+                    Log.Exp(e);
                 }
             }
         }
@@ -78,7 +78,7 @@ namespace TinyECS.Core
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                Log.Exp(e);
             }
         }
         
@@ -93,7 +93,7 @@ namespace TinyECS.Core
                 }
                 catch (Exception e)
                 {
-                    Debug.LogException(e);
+                    Log.Exp(e);
                 }
             }
         }

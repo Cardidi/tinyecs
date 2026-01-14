@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using TinyECS.Core.Helpers;
+using TinyECS.Core.Vendor;
 
 namespace TinyECS.Core
 {
@@ -151,7 +151,7 @@ namespace TinyECS.Core
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                Log.Exp(e);
             }
             
             return pos;
@@ -172,7 +172,7 @@ namespace TinyECS.Core
             }
             catch (Exception e)
             {
-                Debug.LogException(e);
+                Log.Exp(e);
             }
             
             if (canSwap)

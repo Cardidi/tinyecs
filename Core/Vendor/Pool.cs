@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace TinyECS.Core.Helpers
+namespace TinyECS.Core.Vendor
 {
     public class Pool<T>
     {

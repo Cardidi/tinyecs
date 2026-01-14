@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using TinyECS.Core;
-using TinyECS.Core.Helpers;
+using TinyECS.Core.Vendor;
 using Object = System.Object;
 
 namespace TinyECS.Core {
