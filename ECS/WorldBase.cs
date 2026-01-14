@@ -1,4 +1,4 @@
-namespace TinyECS.Core
+namespace TinyECS
 {
 
     public class WorldBase : WorldBase<WorldBase>

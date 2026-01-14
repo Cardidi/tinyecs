@@ -1,6 +1,6 @@
 // ReSharper disable ForCanBeConvertedToForeach
 
-namespace TinyECS.Core.Vendor
+namespace TinyECS.Vendor
 {
     
     public delegate void Emitter<in THandler>(THandler h) where THandler : Delegate;

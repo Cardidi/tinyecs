@@ -2,12 +2,11 @@
 
 using System.Collections.ObjectModel;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using TinyECS.Core;
-using TinyECS.Core.Vendor;
+using TinyECS.Vendor;
 using Object = System.Object;
 
-namespace TinyECS.Core {
+namespace TinyECS {
 
     /// <summary>
     /// World builder. It can be cached and await to create any new world.

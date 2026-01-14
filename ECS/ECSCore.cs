@@ -1,6 +1,4 @@
-using System.Runtime.CompilerServices;
-
-namespace TinyECS.Core
+namespace TinyECS
 {
     #region World Define
 

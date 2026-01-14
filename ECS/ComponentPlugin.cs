@@ -1,8 +1,7 @@
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using TinyECS.Core.Vendor;
+using TinyECS.Vendor;
 
-namespace TinyECS.Core
+namespace TinyECS
 {
     
     public abstract class ComponentStore

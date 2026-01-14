@@ -1,9 +1,8 @@
-using System.Diagnostics;
-using TinyECS.Core.Vendor;
+using TinyECS.Vendor;
 
 // ReSharper disable ForCanBeConvertedToForeach
 
-namespace TinyECS.Core
+namespace TinyECS
 {
     
     public interface IEntityMatcher

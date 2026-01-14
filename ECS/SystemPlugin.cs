@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
-using TinyECS.Core.Vendor;
+using TinyECS.Vendor;
 
-namespace TinyECS.Core
+namespace TinyECS
 {
     /// <summary>
     /// Plugin on manage system schedule and tick.

@@ -1,4 +1,4 @@
-namespace TinyECS.Core.Vendor
+namespace TinyECS.Vendor
 {
     public readonly struct SortedObject<T> : IComparable<SortedObject<T>>, IEquatable<SortedObject<T>>
     {

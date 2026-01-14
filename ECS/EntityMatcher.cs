@@ -1,6 +1,6 @@
-using TinyECS.Core.Vendor;
+using TinyECS.Vendor;
 
-namespace TinyECS.Core
+namespace TinyECS
 {
 
     public interface INoneOfEntityMatcher : IEntityMatcher
