@@ -1,16 +1,15 @@
 using System.Diagnostics;
-using TinyECS.Core;
 
 // ReSharper disable ForCanBeConvertedToForeach
 
-namespace TinyECS.CoreExtension
+namespace TinyECS.Core
 {
     
     public interface IEntityMatcher
     {
         public bool IsMatched(Entity graph);
         
-        public IReadOnlyList<Entity> Matches { get; }
+        public IReadOnlyList<Entity> Entities { get; }
     }
     
     public interface IEntitySystem<TWorld> : ISystem<TWorld> where TWorld : class, IWorld<TWorld>
@@ -86,23 +85,23 @@ namespace TinyECS.CoreExtension
         
         public void UpdateSystemMatcherForEntity(IEntitySystem<TWorld> system, Entity graph)
         {
-            for (var k = 0; k < system.Groups.Count; k++)
+            for (var i = 0; i < system.Groups.Count; i++)
             {
-                var match = system.Groups[k];
+                var match = system.Groups[i];
                 if (match == null) continue;
                 
-                var list = (List<Entity>) match.Matches;
+                var list = (List<Entity>) match.Entities;
                 var isMatched = match.IsMatched(graph);
                 var entityIdx = list.IndexOf(graph);
                 if (isMatched && entityIdx < 0)
                 {
                     list.Add(graph);
-                    try { system.OnEntityIncluded(graph, match, k); }
+                    try { system.OnEntityIncluded(graph, match, i); }
                     catch (Exception e) { Debug.LogException(e); }
                 }
                 else if (!isMatched && entityIdx >= 0)
                 {
-                    try { system.OnEntityExcluded(graph, match, k); }
+                    try { system.OnEntityExcluded(graph, match, i); }
                     catch (Exception e) { Debug.LogException(e); }
                     list.RemoveAt(entityIdx);
                 }

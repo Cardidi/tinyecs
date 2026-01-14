@@ -1,6 +1,4 @@
-using TinyECS.Core;
-
-namespace TinyECS.CoreExtension
+namespace TinyECS.Core
 {
     public abstract class SystemBase<TWorld> : IEntitySystem<TWorld> where TWorld : World<TWorld>
     {

@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using TinyECS.Core;
+using TinyECS.Core.Helpers;
 using Object = System.Object;
 
 namespace TinyECS.Core {
@@ -149,19 +150,19 @@ namespace TinyECS.Core {
 
         #region Plugins
 
-        private readonly IPlugin<TWorld>[] m_plugins;
+        private IPlugin<TWorld>[] m_plugins;
         
-        private readonly ComponentPlugin<TWorld> m_compPlugin;
+        private ComponentPlugin<TWorld> m_compPlugin;
 
-        private readonly SystemPlugin<TWorld> m_sysPlugin;
+        private SystemPlugin<TWorld> m_sysPlugin;
 
-        private readonly EntityPlugin<TWorld> m_entityPlugin;
+        private EntityPlugin<TWorld> m_entityPlugin;
 
         #endregion
         
         #region Basis
         
-        private readonly IReadOnlyDictionary<object, object> m_envData;
+        private IReadOnlyDictionary<object, object> m_envData;
 
         private WorldState m_state = WorldState.Created;
 
@@ -248,7 +249,7 @@ namespace TinyECS.Core {
 
         public int GetComponents(ICollection<ComponentRef> result)
         {
-            Assert.IsNotNull(result, "Collector is null!");
+            Assertion.IsNotNull(result, "Collector is null!");
             
             var eum = m_compPlugin.GetAllComponentStores()
                 .SelectMany(x => x.Cores)
@@ -261,7 +262,7 @@ namespace TinyECS.Core {
 
         public int GetComponents<TComp>(ICollection<ComponentRef<TComp>> result) where TComp : struct, IComponent<TComp>
         {
-            Assert.IsNotNull(result, "Collector is null!");
+            Assertion.IsNotNull(result, "Collector is null!");
             
             var store = m_compPlugin.GetComponentStore<TComp>(false);
             if (store == null) return 0;
@@ -274,7 +275,7 @@ namespace TinyECS.Core {
 
         public ComponentRef<TComp> AddComponent<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
         {
-            Assert.IsTrue(m_entityPlugin.Entities.ContainsKey(entityId), "Entity is not created yet!");
+            Assertion.IsTrue(m_entityPlugin.Entities.ContainsKey(entityId), "Entity is not created yet!");
             
             var core = m_compPlugin.CreateComponent<TComp>(entityId);
             return new ComponentRef<TComp>(core);
@@ -290,7 +291,7 @@ namespace TinyECS.Core {
         
         public ComponentRef AddComponent(Type type, ulong entityId)
         {
-            Assert.IsTrue(m_entityPlugin.Entities.ContainsKey(entityId), "Entity is not created yet!");
+            Assertion.IsTrue(m_entityPlugin.Entities.ContainsKey(entityId), "Entity is not created yet!");
             
             var core = m_compPlugin.CreateComponent(type, entityId);
             return new ComponentRef(core);
@@ -306,13 +307,13 @@ namespace TinyECS.Core {
 
         public void DestroyComponent<TComp>(ComponentRef<TComp> comp) where TComp : struct, IComponent<TComp>
         {
-            Assert.IsTrue(comp.NotNull, "Component Ref is not valid!");
+            Assertion.IsTrue(comp.NotNull, "Component Ref is not valid!");
             m_compPlugin.DestroyComponent<TComp>(comp.Core);
         }
         
         public void DestroyComponent(ComponentRef comp)
         {
-            Assert.IsTrue(comp.NotNull, "Component Ref is not valid!");
+            Assertion.IsTrue(comp.NotNull, "Component Ref is not valid!");
             m_compPlugin.DestroyComponent(comp.Core);
         }
 
@@ -347,11 +348,11 @@ namespace TinyECS.Core {
 
         private void _postCtor(ISystem<TWorld>[] systems, IPlugin<TWorld>[] plugins, IReadOnlyDictionary<object, object> env)
         {
-            Unsafe.AsRef(m_envData) = env;
-            Unsafe.AsRef(m_plugins) = plugins;
-            Unsafe.AsRef(m_sysPlugin) = plugins.OfType<SystemPlugin<TWorld>>().First();
-            Unsafe.AsRef(m_compPlugin) = plugins.OfType<ComponentPlugin<TWorld>>().First();
-            Unsafe.AsRef(m_entityPlugin) = plugins.OfType<EntityPlugin<TWorld>>().First();
+            m_envData = env;
+            m_plugins = plugins;
+            m_sysPlugin = plugins.OfType<SystemPlugin<TWorld>>().First();
+            m_compPlugin = plugins.OfType<ComponentPlugin<TWorld>>().First();
+            m_entityPlugin = plugins.OfType<EntityPlugin<TWorld>>().First();
         }
 
         private World() {}

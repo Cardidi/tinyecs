@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using TinyECS.Core.Helpers;
 
 namespace TinyECS.Core
 {
@@ -29,7 +30,7 @@ namespace TinyECS.Core
 
         public void CacheSystems(IReadOnlyCollection<ISystem<TWorld>> systemTypes)
         {
-            Assert.IsNotNull(systemTypes);
+            Assertion.IsNotNull(systemTypes);
 
             var sysList = new List<ISystem<TWorld>>();
             var sysTransformer = new Dictionary<Type, int>();

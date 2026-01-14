@@ -1,11 +1,13 @@
+using TinyECS.Core.Helpers;
+
 namespace TinyECS.Core
 {
     public sealed class Entity : IEntity
     {
 
-        public static readonly ObjectPool<Entity> Pool = new(
+        public static readonly Pool<Entity> Pool = new(
             createFunc: () => new Entity(),
-            actionOnRelease: x => x.Reset());
+            getAction: x => x.Reset());
 
         public ulong EntityId { get; set; }
 

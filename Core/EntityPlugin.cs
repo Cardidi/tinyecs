@@ -1,3 +1,5 @@
+using TinyECS.Core.Helpers;
+
 namespace TinyECS.Core
 {
 

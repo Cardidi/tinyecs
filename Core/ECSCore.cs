@@ -180,24 +180,30 @@ namespace TinyECS.Core
     /// </summary>
     public class ComponentRefCore
     {
-        public readonly IComponentRefLocator RefLocator;
-        
-        public readonly int Offset;
-        
-        public readonly uint Version;
+        public IComponentRefLocator RefLocator => m_refLocator;
+
+        public int Offset => m_offset;
+
+        public uint Version => m_version;
+
+        private IComponentRefLocator m_refLocator;
+
+        private int m_offset;
+
+        private uint m_version;
 
         internal ComponentRefCore(IComponentRefLocator refLocator, int offset, uint version)
         {
-            RefLocator = refLocator;
-            Offset = offset;
-            Version = version;
+            m_refLocator = refLocator;
+            m_offset = offset;
+            m_version = version;
         }
 
         public void RewriteRef(IComponentRefLocator locator, int offset, uint version)
         {
-            Unsafe.AsRef(in RefLocator) = locator;
-            Unsafe.AsRef(in Offset) = offset;
-            Unsafe.AsRef(in Version) = version;
+            m_refLocator = locator;
+            m_offset = offset;
+            m_version = version;
         }
     }
 
@@ -330,21 +336,7 @@ namespace TinyECS.Core
         /// <summary>
         /// Access component data directly.
         /// </summary>
-        public ref T RW
-        {
-            get 
-            {
-                if (Core?.RefLocator == null || !Core.RefLocator.NotNull(Core.Version, Core.Offset))
-                    throw new NullReferenceException("Component Reference is cut.");
-            
-                return ref Core.RefLocator.Get<T>(Core.Offset);
-            }
-        }
-        
-        /// <summary>
-        /// Access to a copy of component data.
-        /// </summary>
-        public ref readonly T RO
+        public ref T M
         {
             get 
             {

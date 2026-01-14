@@ -1,6 +1,6 @@
-using TinyECS.Core;
+using TinyECS.Core.Helpers;
 
-namespace TinyECS.CoreExtension
+namespace TinyECS.Core
 {
 
     public interface INoneOfEntityMatcher : IEntityMatcher
@@ -55,7 +55,7 @@ namespace TinyECS.CoreExtension
             }
         }
 
-        public IReadOnlyList<Entity> Matches => m_collected;
+        public IReadOnlyList<Entity> Entities => m_collected;
         
         public INoneOfEntityMatcher OfNone<T>() where T : struct, IComponent<T>
         {

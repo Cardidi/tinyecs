@@ -1,5 +1,7 @@
 // ReSharper disable once CheckNamespace
 
+using TinyECS.Core.Helpers;
+
 namespace TinyECS.Core
 {
     /*

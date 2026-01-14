@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
-using TinyECS.Core;
 
-namespace TinyECS.CoreExtension
+namespace TinyECS.Core
 {
 
     public class WorldBase : WorldBase<WorldBase>
