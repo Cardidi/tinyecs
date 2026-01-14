@@ -1,6 +1,6 @@
 namespace TinyECS.Core.Vendor
 {
-    public class HashSetPool<T>
+    public static class HashSetPool<T>
     {
         private static readonly Pool<HashSet<T>> Pool = new(
             createFunc: () => new HashSet<T>(),
