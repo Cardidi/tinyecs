@@ -1,14 +1,17 @@
-using TinyECS.Vendor;
+using TinyECS.Defines;
+using TinyECS.Utils;
 
-namespace TinyECS
+namespace TinyECS.Managers
 {
 
     public delegate void EntityGetCompHandler(Entity entity);
     
     public delegate void EntityLoseCompHandler(Entity entity);
     
-    public class EntityPlugin<TWorld> : IPlugin<TWorld> where TWorld : World<TWorld>
+    public sealed class EntityManager : IWorldManager
     {
+        public IWorld World { get; private set; }
+        
         public Signal<EntityGetCompHandler> OnEntityGotComp { get; } = new();
         
         public Signal<EntityLoseCompHandler> OnEntityLoseComp { get; } = new();
@@ -23,17 +26,6 @@ namespace TinyECS
 
         public IReadOnlyDictionary<ulong, Entity> Entities => m_entities;
         
-        public void OnConstruct(TWorld world, 
-            IReadOnlyList<IPlugin<TWorld>> plugins,
-            IReadOnlyList<ISystem<TWorld>> systems, 
-            IReadOnlyDictionary<object, object> envData)
-        {
-            var comp = world.GetPlugin<ComponentPlugin<TWorld>>();
-            comp.OnCompAdded.Add(OnCompAdded);
-            comp.OnCompRemoved.Add(OnCompRemoved);
-            world.OnDestroyTick.Add((_, _) => ReleaseEmptyEntityGraph(), 10);
-        }
-
         public bool IsEntityPreserved(ulong entityId)
         {
             if (!m_entities.TryGetValue(entityId, out var graph))
@@ -117,6 +109,28 @@ namespace TinyECS
             if (gs.RwComponents.Count == 0 && !m_preservedEntityGraph.Contains(gs)) m_removals.Add(gs);
             
             OnEntityLoseComp.Emit(in gs, static (h, c) => h(c));
+        }
+
+        public void OnManagerCreated(IWorld world)
+        {
+            var compManager = world.GetManager<ComponentManager>();
+            compManager.OnCompAdded.Add(OnCompAdded);
+            compManager.OnCompRemoved.Add(OnCompRemoved);
+            
+            var systemManager = world.GetManager<SystemManager>();
+            systemManager.OnSystemEndExecute.Add((_, _) => ReleaseEmptyEntityGraph(), 10);
+        }
+
+        public void OnWorldStarted(IWorld world)
+        {
+        }
+
+        public void OnWorldEnded(IWorld world)
+        {
+        }
+
+        public void OnManagerDestroyed(IWorld world)
+        {
         }
     }
 }

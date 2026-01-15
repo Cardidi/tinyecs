@@ -1,4 +1,4 @@
-namespace TinyECS
+namespace TinyECS.Defines
 {
     
     /// <summary>
@@ -176,11 +176,11 @@ namespace TinyECS
                 return Core.RefLocator.GetEntityId(Core.Offset);
             }
         }
-
+        
         /// <summary>
         /// Access component data directly.
         /// </summary>
-        public ref T M
+        public ref T R
         {
             get 
             {

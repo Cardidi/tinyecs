@@ -1,8 +1,9 @@
-using TinyECS.Vendor;
+using TinyECS.Defines;
+using TinyECS.Utils;
 
 // ReSharper disable ForCanBeConvertedToForeach
 
-namespace TinyECS
+namespace TinyECS.Managers
 {
     
     public interface IEntityMatcher
@@ -12,44 +13,32 @@ namespace TinyECS
         public IReadOnlyList<Entity> Entities { get; }
     }
     
-    public interface IEntitySystem<TWorld> : ISystem<TWorld> where TWorld : class, IWorld<TWorld>
+    public interface IEntitySystem
     {
-        public IReadOnlyList<IEntityMatcher> Groups { get; }
+        public IReadOnlyList<IEntityMatcher> Matchers { get; }
         
         public void OnEntityIncluded(IEntity graph, IEntityMatcher matcher, int matchIndex);
         
         public void OnEntityExcluded(IEntity graph, IEntityMatcher matcher, int matchIndex);
     }
     
-    public class EntityMatcherPlugin<TWorld> : IPlugin<TWorld> where TWorld :World<TWorld>
+    public sealed class EntityMatchManager : IWorldManager
     {
 
-        private readonly List<IEntitySystem<TWorld>> m_reactiveSystems = new();
+        public IWorld World { get; private set; }
+        
+        private readonly List<IEntitySystem> m_reactiveSystems = new();
 
         private readonly List<Entity>[] m_modifiedComponent = { new(), new() };
 
-        public IReadOnlyCollection<IEntitySystem<TWorld>> ReactiveSystems => m_reactiveSystems;
-        
-        
-        public void OnConstruct(
-            TWorld world,
-            IReadOnlyList<IPlugin<TWorld>> plugins,
-            IReadOnlyList<ISystem<TWorld>> systems,
-            IReadOnlyDictionary<object, object> envData)
-        {
-            var egp = world.GetPlugin<EntityPlugin<TWorld>>();
-            egp.OnEntityGotComp.Add(EntityGotComp);
-            egp.OnEntityLoseComp.Add(EntityLoseComp);
-            world.OnBeforeTick.Add(BeforeTick);
-            world.OnAfterTick.Add(AfterTick);
-        }
+        public IReadOnlyCollection<IEntitySystem> ReactiveSystems => m_reactiveSystems;
 
-        private void BeforeTick(TWorld world, float tick)
+        private void BeforeTick(IWorld world, ISystem system)
         {
             UpdateAllModifications();
         }
 
-        private void AfterTick(TWorld world, float tick)
+        private void AfterTick(IWorld world, ISystem system)
         {
             UpdateAllModifications();
         }
@@ -71,23 +60,23 @@ namespace TinyECS
             (m_modifiedComponent[0], m_modifiedComponent[1]) = (m_modifiedComponent[1], m_modifiedComponent[0]);
         }
         
-        public void RegisterSystem(IEntitySystem<TWorld> sys)
+        public void RegisterSystem(IEntitySystem sys)
         {
             if (m_reactiveSystems.Contains(sys)) throw new InvalidOperationException("System has already registered!");
             m_reactiveSystems.Add(sys);
         }
 
-        public void UnregisterSystem(IEntitySystem<TWorld> sys)
+        public void UnregisterSystem(IEntitySystem sys)
         {
             if (m_reactiveSystems.Contains(sys)) throw new InvalidOperationException("System has not been register yet!");
             m_reactiveSystems.Remove(sys);
         }
         
-        public void UpdateSystemMatcherForEntity(IEntitySystem<TWorld> system, Entity graph)
+        public void UpdateSystemMatcherForEntity(IEntitySystem system, Entity graph)
         {
-            for (var i = 0; i < system.Groups.Count; i++)
+            for (var i = 0; i < system.Matchers.Count; i++)
             {
-                var match = system.Groups[i];
+                var match = system.Matchers[i];
                 if (match == null) continue;
                 
                 var list = (List<Entity>) match.Entities;
@@ -127,6 +116,29 @@ namespace TinyECS
             }
             
             mods.Clear();
+        }
+
+        public void OnManagerCreated(IWorld world)
+        {
+            var entityManager = world.GetManager<EntityManager>();
+            entityManager.OnEntityGotComp.Add(EntityGotComp);
+            entityManager.OnEntityLoseComp.Add(EntityLoseComp);
+            
+            var systemManager = world.GetManager<SystemManager>();
+            systemManager.OnSystemBeginExecute.Add(BeforeTick);
+            systemManager.OnSystemBeginExecute.Add(AfterTick);
+        }
+
+        public void OnWorldStarted(IWorld world)
+        {
+        }
+
+        public void OnWorldEnded(IWorld world)
+        {
+        }
+
+        public void OnManagerDestroyed(IWorld world)
+        {
         }
     }
 }

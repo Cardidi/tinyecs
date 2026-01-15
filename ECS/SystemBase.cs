@@ -1,8 +1,11 @@
+using TinyECS.Defines;
+using TinyECS.Managers;
+
 namespace TinyECS
 {
-    public abstract class SystemBase<TWorld> : IEntitySystem<TWorld> where TWorld : World<TWorld>
+    public abstract class SystemBase<TWorld> : IEntitySystem where TWorld : class, IWorld
     {
-        public IReadOnlyList<IEntityMatcher> Groups { get; private set; }
+        public IReadOnlyList<IEntityMatcher> Matchers { get; private set; }
         
         public TWorld World { get; private set; }
         
@@ -13,37 +16,37 @@ namespace TinyECS
         public virtual void OnCreate(TWorld world)
         {
             World = world;
-            var emp = world.GetPlugin<EntityMatcherPlugin<TWorld>>();
+            var emp = world.GetManager<EntityMatchManager>();
             
             if (emp != null)
             {
-                Groups = OnCreateGroups() ?? Array.Empty<IEntityMatcher>();
+                Matchers = GetMatchers() ?? Array.Empty<IEntityMatcher>();
                 emp.RegisterSystem(this);
             }
             else
             {
-                Groups = Array.Empty<IEntityMatcher>();
+                Matchers = Array.Empty<IEntityMatcher>();
             }
 
         }
 
         public virtual void OnDestroy(TWorld world)
         {
-            var emp = world.GetPlugin<EntityMatcherPlugin<TWorld>>();
+            var emp = world.GetManager<EntityMatchManager>();
             if (emp != null)
             {
                 emp.UnregisterSystem(this);
             }
 
             World = null;
-            Groups = null;
+            Matchers = null;
         }
 
-        protected virtual IEntityMatcher[] OnCreateGroups()
+        protected virtual IEntityMatcher[] GetMatchers()
         {
             return null;
         }
         
-        public virtual void OnTick(TWorld world, float dt) {}
+        public virtual void OnTick(TWorld world) {}
     }
 }

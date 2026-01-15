@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace TinyECS.Vendor
+namespace TinyECS.Utils
 {
     public static class Assertion
     {
@@ -38,6 +38,17 @@ namespace TinyECS.Vendor
                 string errorMessage = message ?? memberName;
                 throw new InvalidOperationException(errorMessage);
             }
+        }
+
+        public static void IsParentTypeTo<TParent>(Type children, string message = null, [CallerMemberName] string memberName = null)
+        {
+            IsTrue(typeof(TParent).IsAssignableFrom(children), message, memberName);
+        }
+        
+
+        public static void IsNotParentTypeTo<TParent>(Type children, string message = null, [CallerMemberName] string memberName = null)
+        {
+            IsTrue(!typeof(TParent).IsAssignableFrom(children), message, memberName);
         }
     }
 }

@@ -1,4 +1,5 @@
-using TinyECS.Vendor;
+using TinyECS.Defines;
+using TinyECS.Utils;
 
 namespace TinyECS
 {

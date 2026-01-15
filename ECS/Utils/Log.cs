@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace TinyECS.Vendor
+namespace TinyECS.Utils
 {
     public interface ILogger
     {
