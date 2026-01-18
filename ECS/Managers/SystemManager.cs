@@ -3,9 +3,13 @@ using TinyECS.Utils;
 
 namespace TinyECS.Managers
 {
+    public delegate void SystemTeardown(IWorld world);
+    
     public delegate void SystemBeginExecute(IWorld world, ISystem system);
     
     public delegate void SystemEndExecute(IWorld world, ISystem system);
+
+    public delegate void SystemCleanup(IWorld world);
     
     /// <summary>
     /// Plugin on manage system schedule and tick.
@@ -25,9 +29,13 @@ namespace TinyECS.Managers
         /// </summary>
         public IReadOnlyDictionary<Type, ISystem> SystemTransformer => m_systemTransformer;
         
+        public Signal<SystemTeardown> OnSystemTeardown { get; } = new();
+        
         public Signal<SystemBeginExecute> OnSystemBeginExecute { get; } = new();
         
         public Signal<SystemEndExecute> OnSystemEndExecute { get; } = new();
+        
+        public Signal<SystemCleanup> OnSystemCleanup { get; } = new();
 
         private readonly List<ISystem> m_systems = new();
 
@@ -37,7 +45,7 @@ namespace TinyECS.Managers
         
         private readonly Queue<Type> m_addSystems = new();
 
-        private bool m_firstInit = false;
+        private bool m_init = false;
 
         private bool m_shutdown = false;
 
@@ -90,18 +98,40 @@ namespace TinyECS.Managers
             
             return (ISystem) Activator.CreateInstance(systemType);
         }
-        
-        public void ExecuteSystem(ulong systemMask)
+
+        public void TeardownSystems()
         {
-            Assertion.IsTrue(m_firstInit);
-            Assertion.IsFalse(m_shutdown);
+            Assertion.IsTrue(m_init, "SystemManager is not initialized yet.");
+            Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
+
+            for (var i = m_addSystems.Count; i > 0; i--)
+            {
+                var systemType = m_addSystems.Dequeue();
+                var sys = InstantSystem(systemType);
+                m_systemTransformer.Add(systemType, sys);
+                m_systems.Add(sys);
+                CreateSystem(sys);
+            }
+            
+            OnSystemTeardown.Emit(World, static (h, w) => h(w));
+        }
+        
+        public void ExecuteSystems(ulong systemMask)
+        {
+            Assertion.IsTrue(m_init, "SystemManager is not initialized yet.");
+            Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             
             for (var i = 0; i < Systems.Count; i++)
             {
                 var system = Systems[i];
-                if (m_delSystems.Contains(system.GetType())) continue;
                 SystemPoll(system, systemMask);
             }
+        }
+
+        public void CleanupSystems()
+        {
+            Assertion.IsTrue(m_init, "SystemManager is not initialized yet.");
+            Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             
             while (m_delSystems.TryDequeue(out var type))
             {
@@ -110,36 +140,41 @@ namespace TinyECS.Managers
                 m_systems.Remove(sys);
                 DestroySystem(sys);
             }
+            
+            OnSystemCleanup.Emit(World, static (h, w) => h(w));
         }
         
         public void RegisterSystem(Type systemType)
         {
-            Assertion.IsFalse(m_shutdown);
+            Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             Assertion.IsNotNull(systemType);
             
-            if (m_firstInit)
+            if (m_init)
+            {
+                if (!m_systemTransformer.ContainsKey(systemType) && !m_addSystems.Contains(systemType))
+                {
+                    m_addSystems.Enqueue(systemType);
+                }
+            }
+            else
             {
                 var sys = InstantSystem(systemType);
                 m_systemTransformer.Add(systemType, sys);
                 m_systems.Add(sys);
                 CreateSystem(sys);
             }
-            else
-            {
-                if (!m_addSystems.Contains(systemType)) m_addSystems.Enqueue(systemType);
-            }
         }
 
         public void UnregisterSystem(Type systemType)
         {
-            Assertion.IsFalse(m_shutdown);
+            Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             Assertion.IsNotNull(systemType);
-            Assertion.IsTrue(m_systemTransformer.ContainsKey(systemType) && !m_delSystems.Contains(systemType));
             var sys = m_systemTransformer[systemType];
 
-            if (m_firstInit)
+            if (m_init)
             {
-                m_delSystems.Enqueue(systemType);
+                if (m_systemTransformer.ContainsKey(systemType) && !m_delSystems.Contains(systemType))
+                    m_delSystems.Enqueue(systemType);
             }
             else
             {
@@ -148,17 +183,19 @@ namespace TinyECS.Managers
                 DestroySystem(sys);
             }
         }
-        
-        
+
+
+        #region EventHandlers
+
         public void OnManagerCreated(IWorld world)
         {
-            m_firstInit = false;
+            m_init = false;
             m_shutdown = false;
         }
 
         public void OnWorldStarted(IWorld world)
         {
-            m_firstInit = true;
+            m_init = true;
             if (m_addSystems.TryDequeue(out var type))
             {
                 var sys = InstantSystem(type);
@@ -172,8 +209,9 @@ namespace TinyECS.Managers
         {
             m_shutdown = true;
             
+            m_addSystems.Clear();
             m_delSystems.Clear();
-            foreach (var system in Systems) m_delSystems.Enqueue(system.GetType());
+            foreach (var system in m_systems) m_delSystems.Enqueue(system.GetType());
             
             while (m_delSystems.TryDequeue(out var type))
             {
@@ -187,5 +225,7 @@ namespace TinyECS.Managers
         public void OnManagerDestroyed(IWorld world)
         {
         }
+
+        #endregion
     }
 }
