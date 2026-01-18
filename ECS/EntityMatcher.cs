@@ -33,20 +33,20 @@ namespace TinyECS
         
         private HashSet<Type> m_none = new();
 
-        private List<Entity> m_collected = new();
+        private List<ulong> m_collected = new();
         
-        public bool IsMatched(Entity graph)
+        public bool IsMatched(ulong mask, IReadOnlyCollection<ComponentRefCore> components)
         {
             // Test if mask is matched
-            if (m_mask != 0 && (graph.Mask & m_mask) == 0) return false;
+            if (m_mask != 0 && (mask & m_mask) == 0) return false;
             
             // Test if empty entity is allowed.
-            if (!m_allowEmpty && graph.RwComponents.Count == 0) return false;
+            if (!m_allowEmpty && components.Count == 0) return false;
             
             using (HashSetPool<Type>.Get(out var all))
             {
                 var isAny = m_any.Count == 0;
-                foreach (var input in graph.RwComponents.Select(x => x.RefLocator.GetT()))
+                foreach (var input in components.Select(x => x.RefLocator.GetT()))
                 {
                     if (m_none.Contains(input)) return false;
                     if (!isAny && m_any.Contains(input)) isAny = true;
@@ -57,7 +57,7 @@ namespace TinyECS
             }
         }
 
-        public IReadOnlyList<Entity> Entities => m_collected;
+        public IReadOnlyList<ulong> Entities => m_collected;
         
         public INoneOfEntityMatcher OfNone<T>() where T : struct, IComponent<T>
         {

@@ -1,9 +1,7 @@
 namespace TinyECS.Defines
 {
-    public interface IWorldManager
+    public interface IWorldManager : IWorldElement
     {
-        public IWorld World { get; }
-        
         public void OnManagerCreated(IWorld world);
         
         public void OnWorldStarted(IWorld world);

@@ -8,18 +8,18 @@ namespace TinyECS.Managers
     
     public interface IEntityMatcher
     {
-        public bool IsMatched(Entity graph);
+        public bool IsMatched(ulong mask, IReadOnlyCollection<ComponentRefCore> components);
         
-        public IReadOnlyList<Entity> Entities { get; }
+        public IReadOnlyList<ulong> Entities { get; }
     }
     
-    public interface IEntitySystem
+    public interface IEntitySystem : ISystem
     {
         public IReadOnlyList<IEntityMatcher> Matchers { get; }
         
-        public void OnEntityIncluded(IEntity graph, IEntityMatcher matcher, int matchIndex);
+        public void OnEntityMatched(ulong entityId, IEntityMatcher matcher, int matchIndex);
         
-        public void OnEntityExcluded(IEntity graph, IEntityMatcher matcher, int matchIndex);
+        public void OnEntityClashed(ulong entityId, IEntityMatcher matcher, int matchIndex);
     }
     
     public sealed class EntityMatchManager : IWorldManager
@@ -29,30 +29,20 @@ namespace TinyECS.Managers
         
         private readonly List<IEntitySystem> m_reactiveSystems = new();
 
-        private readonly List<Entity>[] m_modifiedComponent = { new(), new() };
+        private readonly List<EntityGraph>[] m_modifiedComponent = { new(), new() };
 
         public IReadOnlyCollection<IEntitySystem> ReactiveSystems => m_reactiveSystems;
 
-        private void BeforeTick(IWorld world, ISystem system)
-        {
-            UpdateAllModifications();
-        }
-
-        private void AfterTick(IWorld world, ISystem system)
-        {
-            UpdateAllModifications();
-        }
-
-        private void EntityGotComp(Entity entity)
+        private void _onEntityGotComponent(EntityGraph entityGraph)
         {
             var mod = m_modifiedComponent[0];
-            if (!mod.Contains(entity)) mod.Add(entity);
+            if (!mod.Contains(entityGraph)) mod.Add(entityGraph);
         }
 
-        private void EntityLoseComp(Entity entity)
+        private void _onEntityLoseComponent(EntityGraph entityGraph)
         {
             var mod = m_modifiedComponent[0];
-            if (!mod.Contains(entity)) mod.Add(entity);
+            if (!mod.Contains(entityGraph)) mod.Add(entityGraph);
         }
 
         private void SwapBuffer()
@@ -72,25 +62,25 @@ namespace TinyECS.Managers
             m_reactiveSystems.Remove(sys);
         }
         
-        public void UpdateSystemMatcherForEntity(IEntitySystem system, Entity graph)
+        public void UpdateSystemMatcherForEntity(IEntitySystem system, EntityGraph graph)
         {
             for (var i = 0; i < system.Matchers.Count; i++)
             {
                 var match = system.Matchers[i];
                 if (match == null) continue;
                 
-                var list = (List<Entity>) match.Entities;
-                var isMatched = match.IsMatched(graph);
+                var list = (List<EntityGraph>) match.Entities;
+                var isMatched = match.IsMatched(graph.Mask, graph.RwComponents);
                 var entityIdx = list.IndexOf(graph);
                 if (isMatched && entityIdx < 0)
                 {
                     list.Add(graph);
-                    try { system.OnEntityIncluded(graph, match, i); }
+                    try { system.OnEntityMatched(graph.EntityId, match, i); }
                     catch (Exception e) { Log.Exp(e); }
                 }
                 else if (!isMatched && entityIdx >= 0)
                 {
-                    try { system.OnEntityExcluded(graph, match, i); }
+                    try { system.OnEntityClashed(graph.EntityId, match, i); }
                     catch (Exception e) { Log.Exp(e); }
                     list.RemoveAt(entityIdx);
                 }
@@ -117,16 +107,18 @@ namespace TinyECS.Managers
             
             mods.Clear();
         }
+        
+        
 
         public void OnManagerCreated(IWorld world)
         {
             var entityManager = world.GetManager<EntityManager>();
-            entityManager.OnEntityGotComp.Add(EntityGotComp);
-            entityManager.OnEntityLoseComp.Add(EntityLoseComp);
+            entityManager.OnEntityGotComp.Add(_onEntityGotComponent);
+            entityManager.OnEntityLoseComp.Add(_onEntityLoseComponent);
             
             var systemManager = world.GetManager<SystemManager>();
-            systemManager.OnSystemBeginExecute.Add(BeforeTick);
-            systemManager.OnSystemBeginExecute.Add(AfterTick);
+            // systemManager.OnSystemBeginExecute.Add(BeforeTick);
+            // systemManager.OnSystemBeginExecute.Add(AfterTick);
         }
 
         public void OnWorldStarted(IWorld world)

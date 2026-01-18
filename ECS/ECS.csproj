@@ -9,4 +9,8 @@
         <AssemblyName>ECS</AssemblyName>
     </PropertyGroup>
 
+    <ItemGroup>
+      <Folder Include="Inject\" />
+    </ItemGroup>
+
 </Project>

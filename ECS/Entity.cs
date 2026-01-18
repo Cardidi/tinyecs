@@ -1,87 +1,63 @@
 using TinyECS.Defines;
-using TinyECS.Utils;
+using TinyECS.Managers;
 
 namespace TinyECS
 {
-    public sealed class Entity : IEntity
+    public readonly struct Entity
     {
 
-        public static readonly Pool<Entity> Pool = new(
-            createFunc: () => new Entity(),
-            getAction: x => x.Reset());
-
-        public ulong EntityId { get; set; }
-
-        public ulong Mask { get; set; }
+        private readonly EntityManager m_mgr;
         
+        private readonly ulong m_entityId;
 
+        private EntityGraph _accessGraph()
+        {
+            if (m_mgr != null && m_mgr.EntityCaches.TryGetValue(m_entityId, out var graph))
+            {
+                return graph;
+            }
+            
+            throw new InvalidOperationException("Entity has already been destroyed.");
+        }
+        
+        public bool IsValid
+        {
+            get
+            {
+                if (m_mgr != null)
+                {
+                    return m_mgr.EntityCaches.ContainsKey(m_entityId);
+                }
+
+                return false;
+            }
+        }
+
+        public ulong EntityId => m_entityId;
+        
         public ComponentRef<TComp> GetComponent<TComp>() where TComp : struct, IComponent<TComp>
         {
-            for (var i = 0; i < RwComponents.Count; i++)
-            {
-                var r = RwComponents[i];
-                var loc = r.RefLocator;
-                if (loc.IsT(typeof(TComp))) return new ComponentRef<TComp>(r);
-            }
-
-            return default;
+            throw new NotImplementedException();
         }
 
         public ComponentRef[] GetComponents()
         {
-            return RwComponents.Select(x => new ComponentRef(x)).ToArray();
+            throw new NotImplementedException();
         }
 
         public int GetComponents(ICollection<ComponentRef> results)
         {
-            var l = RwComponents.Count;
-            for (var i = 0; i < RwComponents.Count; i++) results.Add(new ComponentRef(RwComponents[i]));
-
-            return l;
+            throw new NotImplementedException();
         }
 
         public ComponentRef<TComp>[] GetComponents<TComp>() where TComp : struct, IComponent<TComp>
         {
-            using (ListPool<ComponentRef<TComp>>.Get(out var builder))
-            {
-                for (var i = 0; i < RwComponents.Count; i++)
-                {
-                    var r = RwComponents[i];
-                    var loc = r.RefLocator;
-                    if (loc.IsT(typeof(TComp))) builder.Add(new ComponentRef<TComp>(r));
-                }
-
-                return builder.ToArray();
-            }
+            throw new NotImplementedException();
         }
 
-        public int GetComponents<TComp>(ICollection<ComponentRef<TComp>> results)
-            where TComp : struct, IComponent<TComp>
+        public int GetComponents<TComp>(ICollection<ComponentRef<TComp>> results) where TComp : struct, IComponent<TComp>
         {
-            var collected = 0;
-            for (var i = 0; i < RwComponents.Count; i++)
-            {
-                var r = RwComponents[i];
-                var loc = r.RefLocator;
-                if (loc.IsT(typeof(TComp)))
-                {
-                    collected += 1;
-                    results.Add(new ComponentRef<TComp>(r));
-                }
-            }
-
-            return collected;
+            throw new NotImplementedException();
         }
-
-        internal List<ComponentRefCore> RwComponents { get; } = new();
-
-        private void Reset()
-        {
-            EntityId = 0;
-            Mask = 0;
-            RwComponents.Clear();
-        }
-        
-        private Entity() {}
     }
 }

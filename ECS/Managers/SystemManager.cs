@@ -57,7 +57,7 @@ namespace TinyECS.Managers
                 OnSystemBeginExecute.Emit(World, system, static (h, w, s) => h(w, s));
                 try
                 {
-                    system.OnTick(World);
+                    system.OnTick();
                 }
                 catch (Exception e)
                 {
@@ -71,7 +71,7 @@ namespace TinyECS.Managers
         {
             try
             {
-                system.OnCreate(World);
+                system.OnCreate();
             }
             catch (Exception e)
             {
@@ -83,7 +83,7 @@ namespace TinyECS.Managers
         {
             try
             {
-                system.OnDestroy(World);
+                system.OnDestroy();
             }
             catch (Exception e)
             {

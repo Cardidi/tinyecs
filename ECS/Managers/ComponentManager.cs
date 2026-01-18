@@ -5,9 +5,9 @@ using TinyECS.Utils;
 namespace TinyECS.Managers
 {
 
-    public delegate void CompAddedHandler(ComponentRefCore component, ulong entityId);
+    public delegate void ComponentCreated(ComponentRefCore component, ulong entityId);
 
-    public delegate void CompRemovedHandler(ComponentRefCore component, ulong entityId);
+    public delegate void ComponentDestroyed(ComponentRefCore component, ulong entityId);
 
     public abstract class ComponentStore
     {
@@ -223,20 +223,20 @@ namespace TinyECS.Managers
 
     public sealed class ComponentManager : IWorldManager
     {
-        private static readonly Emitter<CompAddedHandler, ComponentRefCore, ulong> _addEmitter = 
+        private static readonly Emitter<ComponentCreated, ComponentRefCore, ulong> _addEmitter = 
             (h, a, b) => h(a, b);
         
         
-        private static readonly Emitter<CompRemovedHandler, ComponentRefCore, ulong> _rmEmitter = 
+        private static readonly Emitter<ComponentDestroyed, ComponentRefCore, ulong> _rmEmitter = 
             (h, a, b) => h(a, b);
         
         public IWorld World { get; private set; }
         
         private readonly Dictionary<Type, ComponentStore> m_compStores = new();
 
-        public Signal<CompAddedHandler> OnCompAdded { get; } = new();
+        public Signal<ComponentCreated> OnComponentCreated { get; } = new();
 
-        public Signal<CompRemovedHandler> OnCompRemoved { get; } = new();
+        public Signal<ComponentDestroyed> OnComponentRemoved { get; } = new();
 
 
         public IEnumerable<ComponentStore> GetAllComponentStores()
@@ -276,7 +276,6 @@ namespace TinyECS.Managers
             return ns;
         }
 
-
         public ComponentRefCore CreateComponent<T>(ulong entityId) where T : struct, IComponent<T>
         {
             var store = GetComponentStore<T>();
@@ -284,18 +283,18 @@ namespace TinyECS.Managers
             var allocComp = store.Increase(entityId);
             var core = store.RefLocator.GetRefCore(allocComp);
             
-            OnCompAdded.Emit(core, entityId, _addEmitter);
+            OnComponentCreated.Emit(core, entityId, _addEmitter);
             return core;
         }
 
-        public ComponentRefCore CreateComponent(Type type, ulong entityId)
+        public ComponentRefCore CreateComponent(ulong entityId, Type type)
         {
             var store = GetComponentStore(type);
 
             var allocComp = store.Increase(entityId);
             var core = store.RefLocator.GetRefCore(allocComp);
             
-            OnCompAdded.Emit(core, entityId, _addEmitter);
+            OnComponentCreated.Emit(core, entityId, _addEmitter);
             return core;
         }
 
@@ -311,7 +310,7 @@ namespace TinyECS.Managers
             var store = GetComponentStore<T>();
             var entityId = store.ComponentGroups[idx].Entity;
             
-            if (store.Decrease(idx)) OnCompRemoved.Emit(core, entityId, _rmEmitter);
+            if (store.Decrease(idx)) OnComponentRemoved.Emit(core, entityId, _rmEmitter);
         }
 
         public void DestroyComponent(ComponentRefCore core)
@@ -323,7 +322,7 @@ namespace TinyECS.Managers
             var store = GetComponentStore(core.RefLocator.GetT());
             var entityId = store.RefLocator.GetEntityId(idx);
             
-            if (store.Decrease(idx)) OnCompRemoved.Emit(core, entityId, _rmEmitter);
+            if (store.Decrease(idx)) OnComponentRemoved.Emit(core, entityId, _rmEmitter);
         }
 
         public void OnManagerCreated(IWorld world) {}

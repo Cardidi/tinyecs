@@ -6,17 +6,18 @@ namespace TinyECS
     public abstract class SystemBase<TWorld> : IEntitySystem where TWorld : class, IWorld
     {
         public IReadOnlyList<IEntityMatcher> Matchers { get; private set; }
-        
-        public TWorld World { get; private set; }
-        
-        public virtual void OnEntityIncluded(IEntity graph, IEntityMatcher matcher, int matchIndex) {}
 
-        public virtual void OnEntityExcluded(IEntity graph, IEntityMatcher matcher, int matchIndex) {}
+        public virtual ulong TickGroup => ulong.MaxValue;
+        
+        public IWorld World { get; private set; }
 
-        public virtual void OnCreate(TWorld world)
+        public virtual void OnEntityMatched(ulong entityId, IEntityMatcher matcher, int matchIndex) {}
+
+        public virtual void OnEntityClashed(ulong entityId, IEntityMatcher matcher, int matchIndex) {}
+
+        public virtual void OnCreate()
         {
-            World = world;
-            var emp = world.GetManager<EntityMatchManager>();
+            var emp = World.GetManager<EntityMatchManager>();
             
             if (emp != null)
             {
@@ -30,16 +31,13 @@ namespace TinyECS
 
         }
 
-        public virtual void OnDestroy(TWorld world)
+        public virtual void OnDestroy()
         {
-            var emp = world.GetManager<EntityMatchManager>();
+            var emp = World.GetManager<EntityMatchManager>();
             if (emp != null)
             {
                 emp.UnregisterSystem(this);
             }
-
-            World = null;
-            Matchers = null;
         }
 
         protected virtual IEntityMatcher[] GetMatchers()
@@ -47,6 +45,6 @@ namespace TinyECS
             return null;
         }
         
-        public virtual void OnTick(TWorld world) {}
+        public virtual void OnTick() {}
     }
 }
