@@ -183,7 +183,7 @@ namespace TinyECS.Managers
             var clashBuffer = collector.Buffers[5];
                     
             var entityId = entityGraph.EntityId;
-            var isMatched = matcher.ComponentFilter(entityGraph.RwComponents);
+            var isMatched = !entityGraph.WishDestroy && matcher.ComponentFilter(entityGraph.RwComponents);
             var alreadyCollected = !init && collectBuffer.Contains(entityId);
             
             // Unchanged then do nothing

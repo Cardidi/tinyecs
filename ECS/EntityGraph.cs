@@ -14,6 +14,8 @@ namespace TinyECS
 
         public ulong Mask { get; set; }
         
+        public bool WishDestroy { get; set; }
+        
 
         public ComponentRef<TComp> GetComponent<TComp>() where TComp : struct, IComponent<TComp>
         {
@@ -79,6 +81,7 @@ namespace TinyECS
         {
             EntityId = 0;
             Mask = 0;
+            WishDestroy = false;
             RwComponents.Clear();
         }
         

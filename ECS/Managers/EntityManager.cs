@@ -61,6 +61,7 @@ namespace TinyECS.Managers
             if (m_entityCaches.Remove(entityId, out var graph))
             {
                 graph.RwComponents.Clear();
+                graph.WishDestroy = true;
                 OnEntityLoseComp.Emit(in graph, static (h, c) => h(c));
                 EntityGraph.Pool.Release(graph);
             }
