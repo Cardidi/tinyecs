@@ -3,6 +3,10 @@ using TinyECS.Utils;
 
 namespace TinyECS
 {
+    /// <summary>
+    /// Entity state which can represent the current state of entity. But do not cache this in production because it can
+    /// being reused.
+    /// </summary>
     public sealed class EntityGraph 
     {
 

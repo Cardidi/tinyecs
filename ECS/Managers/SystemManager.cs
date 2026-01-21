@@ -187,13 +187,13 @@ namespace TinyECS.Managers
 
         #region EventHandlers
 
-        public void OnManagerCreated(IWorld world)
+        public void OnManagerCreated()
         {
             m_init = false;
             m_shutdown = false;
         }
 
-        public void OnWorldStarted(IWorld world)
+        public void OnWorldStarted()
         {
             m_init = true;
             if (m_addSystems.TryDequeue(out var type))
@@ -205,7 +205,7 @@ namespace TinyECS.Managers
             }
         }
 
-        public void OnWorldEnded(IWorld world)
+        public void OnWorldEnded()
         {
             m_shutdown = true;
             
@@ -222,7 +222,7 @@ namespace TinyECS.Managers
             }
         }
 
-        public void OnManagerDestroyed(IWorld world)
+        public void OnManagerDestroyed()
         {
         }
 

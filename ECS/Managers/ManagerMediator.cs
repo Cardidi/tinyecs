@@ -59,7 +59,7 @@ namespace TinyECS.Managers
             {
                 try
                 {
-                    mgr.OnManagerCreated(m_world);
+                    mgr.OnManagerCreated();
                 }
                 catch (Exception e)
                 {
@@ -71,7 +71,7 @@ namespace TinyECS.Managers
             {
                 try
                 {
-                    mgr.OnWorldStarted(m_world);
+                    mgr.OnWorldStarted();
                 }
                 catch (Exception e)
                 {
@@ -89,7 +89,7 @@ namespace TinyECS.Managers
             {
                 try
                 {
-                    mgr.OnWorldEnded(m_world);
+                    mgr.OnWorldEnded();
                 }
                 catch (Exception e)
                 {
@@ -101,7 +101,7 @@ namespace TinyECS.Managers
             {
                 try
                 {
-                    mgr.OnManagerDestroyed(m_world);
+                    mgr.OnManagerDestroyed();
                 }
                 catch (Exception e)
                 {

@@ -285,22 +285,22 @@ namespace TinyECS.Managers
             return c;
         }
 
-        public void OnManagerCreated(IWorld world)
+        public void OnManagerCreated()
         {
-            var entityManager = world.GetManager<EntityManager>();
+            var entityManager = World.GetManager<EntityManager>();
             entityManager.OnEntityGotComp.Add(_onComponentAdded);
             entityManager.OnEntityLoseComp.Add(_onComponentRemoved);
         }
 
-        public void OnWorldStarted(IWorld world)
+        public void OnWorldStarted()
         {
         }
 
-        public void OnWorldEnded(IWorld world)
+        public void OnWorldEnded()
         {
         }
 
-        public void OnManagerDestroyed(IWorld world)
+        public void OnManagerDestroyed()
         {
             foreach (var collector in m_collectors)
             {
@@ -314,7 +314,7 @@ namespace TinyECS.Managers
             
             m_collectors.Clear();
 
-            var entityManager = world.GetManager<EntityManager>();
+            var entityManager = World.GetManager<EntityManager>();
             entityManager.OnEntityGotComp.Remove(_onComponentAdded);
             entityManager.OnEntityLoseComp.Remove(_onComponentRemoved);
         }

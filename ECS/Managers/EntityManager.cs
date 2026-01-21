@@ -86,24 +86,24 @@ namespace TinyECS.Managers
             OnEntityLoseComp.Emit(in gs, static (h, c) => h(c));
         }
 
-        public void OnManagerCreated(IWorld world)
+        public void OnManagerCreated()
         {
-            var compManager = world.GetManager<ComponentManager>();
+            var compManager = World.GetManager<ComponentManager>();
             compManager.OnComponentCreated.Add(_onComponentAdded);
             compManager.OnComponentRemoved.Add(_onComponentRemoved);
 
             m_init = true;
         }
 
-        public void OnWorldStarted(IWorld world) {}
+        public void OnWorldStarted() {}
 
-        public void OnWorldEnded(IWorld world) {}
+        public void OnWorldEnded() {}
 
-        public void OnManagerDestroyed(IWorld world)
+        public void OnManagerDestroyed()
         {
             m_shutdown = true;
             
-            var compManager = world.GetManager<ComponentManager>();
+            var compManager = World.GetManager<ComponentManager>();
             compManager.OnComponentCreated.Remove(_onComponentAdded);
             compManager.OnComponentRemoved.Remove(_onComponentRemoved);
             
