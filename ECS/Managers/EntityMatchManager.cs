@@ -1,4 +1,5 @@
 using TinyECS.Defines;
+using TinyECS.Utils;
 
 
 namespace TinyECS.Managers
@@ -54,6 +55,20 @@ namespace TinyECS.Managers
     }
 
 
+    [Flags]
+    public enum EntityCollectorFlag
+    {
+        /// <summary>
+        /// Do nothing special.
+        /// </summary>
+        None = 0,
+        
+        /// <summary>
+        /// Don't remove element from RealtimeCollected before change.
+        /// </summary>
+        LazyRemoval = 1 << 0,
+    }
+
     public sealed class EntityMatchManager : IWorldManager
     {
 
@@ -76,6 +91,8 @@ namespace TinyECS.Managers
                 new List<ulong>(),
                 new List<ulong>(),
             };
+            
+            public EntityCollectorFlag Flag { get; }
 
             public IEntityMatcher Matcher { get; }
 
@@ -89,21 +106,51 @@ namespace TinyECS.Managers
 
             public void Change()
             {
+                
                 (Buffers[0], Buffers[1], Buffers[2], Buffers[3], Buffers[4], Buffers[5]) = 
                     (Buffers[3], Buffers[4], Buffers[5], Buffers[0], Buffers[1], Buffers[2]);
                 
                 // Clear prev matching and clashing
+                
                 Buffers[4].Clear();
                 Buffers[5].Clear();
                 
                 // Copy data from back to front
                 
+                var processRemoval = (Flag & EntityCollectorFlag.LazyRemoval) > 0;
                 var changedMatch = Buffers[1];
                 var changedClash = Buffers[2];
-                var backBuffer = Buffers[3];
 
+                // Must do a removal at the end of match and start of change
+                
+                if (processRemoval && changedClash.Count > 0)
+                {
+                    var frontBuffer = Buffers[0];
+                    var changed = 0;
+
+                    // Apply clashing
+                    for (int i = 0; i < frontBuffer.Count - changed; i++)
+                    {
+                        var id = frontBuffer[i];
+                        if (!changedClash.Contains(id)) continue;
+
+                        changed += 1;
+                        (frontBuffer[i], frontBuffer[^changed]) = (frontBuffer[^changed], frontBuffer[i]);
+                    }
+                    
+                    // Shrink array
+                    if (changed > 0)
+                    {
+                        frontBuffer.RemoveRange(frontBuffer.Count - changed, changed);
+                    }
+                }
+
+                // Update back buffer to ensure align to front buffer
+                
                 if (changedMatch.Count + changedClash.Count > 0)
                 {
+                    var backBuffer = Buffers[3];
+                    
                     // Judge use which algorithm to update backend buffer
                     if ((changedClash.Count * changedClash.Count) < backBuffer.Count)
                     {
@@ -121,7 +168,8 @@ namespace TinyECS.Managers
 
                         // Apply matching
                         var offset = backBuffer.Count - changed;
-                        backBuffer.EnsureCapacity(backBuffer.Count - changed + changedMatch.Count);
+                        var finalSize = backBuffer.Count - changed + changedMatch.Count;
+                        backBuffer.EnsureCapacity(finalSize);
                         for (var i = 0; i < changedMatch.Count; i++)
                         {
                             var bufferIdx = offset + i;
@@ -144,9 +192,10 @@ namespace TinyECS.Managers
                 
             }
 
-            public Collector(IEntityMatcher matcher)
+            public Collector(IEntityMatcher matcher, EntityCollectorFlag flag)
             {
                 Matcher = matcher;
+                Flag = flag;
             }
         }
 
@@ -178,13 +227,19 @@ namespace TinyECS.Managers
             // Quick-pass filter
             if ((matcher.EntityMask & entityGraph.Mask) == 0) return;
             
+            // Buffers
             var collectBuffer = collector.Buffers[3];
             var matchBuffer = collector.Buffers[4];
             var clashBuffer = collector.Buffers[5];
-                    
+
+            // Config
+            var dontRemove = (collector.Flag & EntityCollectorFlag.LazyRemoval) > 0;
             var entityId = entityGraph.EntityId;
+            
+            // If lazy removal, it will not represent in collectBuffer.
+            var alreadyCollected = !init && collectBuffer.Contains(entityId) && (!dontRemove || clashBuffer.Contains(entityId));
+            
             var isMatched = !entityGraph.WishDestroy && matcher.ComponentFilter(entityGraph.RwComponents);
-            var alreadyCollected = !init && collectBuffer.Contains(entityId);
             
             // Unchanged then do nothing
             if (!(isMatched ^ alreadyCollected)) return;
@@ -196,14 +251,22 @@ namespace TinyECS.Managers
             }
             else
             {
-                collectBuffer.Remove(entityId);
+                if (!dontRemove) collectBuffer.Remove(entityId);
                 if (!matchBuffer.Remove(entityId)) clashBuffer.Add(entityId);
             }
         }
 
+
         public IEntityCollector MakeCollector(IEntityMatcher matcher)
         {
-            var c = new Collector(matcher);
+            return MakeCollector(EntityCollectorFlag.None, matcher);
+        }
+
+        public IEntityCollector MakeCollector(EntityCollectorFlag flag, IEntityMatcher matcher)
+        {
+            Assertion.IsNotNull(matcher);
+            
+            var c = new Collector(matcher, flag);
             m_collectors.Add(c);
 
             var entityManager = World.GetManager<EntityManager>();
@@ -232,6 +295,16 @@ namespace TinyECS.Managers
 
         public void OnManagerDestroyed(IWorld world)
         {
+            foreach (var collector in m_collectors)
+            {
+                for (var i = 0; i < collector.Buffers.Length; i++)
+                {
+                    var buf = collector.Buffers[i];
+                    collector.Buffers[i] = null;
+                    buf.Clear();
+                }
+            }
+            
             m_collectors.Clear();
 
             var entityManager = world.GetManager<EntityManager>();
