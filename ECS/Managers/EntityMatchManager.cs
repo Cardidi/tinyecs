@@ -182,6 +182,13 @@ namespace TinyECS.Managers
                                 backBuffer[bufferIdx] = changedMatch[i];
                             }
                         }
+
+                        // Shrink array
+                        var shrinkSize = backBuffer.Count - finalSize;
+                        if (shrinkSize > 0)
+                        {
+                            backBuffer.RemoveRange(finalSize, shrinkSize);
+                        }
                     }
                     else
                     {
