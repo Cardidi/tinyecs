@@ -1,6 +1,5 @@
 using TinyECS.Defines;
 using TinyECS.Managers;
-using TinyECS.Utils;
 
 namespace TinyECS
 {
@@ -23,41 +22,8 @@ namespace TinyECS
     
     public class EntityMatcher : IAllOfEntityMatcher
     {
-        private ulong m_mask;
 
-        private bool m_allowEmpty;
-        
-        private HashSet<Type> m_all = new();
-        
-        private HashSet<Type> m_any = new();
-        
-        private HashSet<Type> m_none = new();
-
-        private List<ulong> m_collected = new();
-        
-        public bool IsMatched(ulong mask, IReadOnlyCollection<ComponentRefCore> components)
-        {
-            // Test if mask is matched
-            if (m_mask != 0 && (mask & m_mask) == 0) return false;
-            
-            // Test if empty entity is allowed.
-            if (!m_allowEmpty && components.Count == 0) return false;
-            
-            using (HashSetPool<Type>.Get(out var all))
-            {
-                var isAny = m_any.Count == 0;
-                foreach (var input in components.Select(x => x.RefLocator.GetT()))
-                {
-                    if (m_none.Contains(input)) return false;
-                    if (!isAny && m_any.Contains(input)) isAny = true;
-                    all.Add(input);
-                }
-
-                return isAny && all.IsSupersetOf(m_all);
-            }
-        }
-
-        public IReadOnlyList<ulong> Entities => m_collected;
+        #region Config
         
         public INoneOfEntityMatcher OfNone<T>() where T : struct, IComponent<T>
         {
@@ -77,22 +43,43 @@ namespace TinyECS
             return this;
         }
 
-        public EntityMatcher AllowEmpty()
-        {
-            m_allowEmpty = true;
-            return this;
-        }
-
         private EntityMatcher(ulong mask)
         {
             m_mask = mask;
         }
 
-        public static EntityMatcher With => new(0);
+        public static EntityMatcher With => new(ulong.MaxValue);
 
-        public static EntityMatcher WithMask(ulong mask)
+        public static EntityMatcher WithMask(ulong mask) => new(mask);
+        
+        #endregion
+        
+        private readonly ulong m_mask;
+        
+        private readonly HashSet<Type> m_all = new();
+        
+        private readonly HashSet<Type> m_any = new();
+        
+        private readonly HashSet<Type> m_none = new();
+
+        private readonly HashSet<Type> m_changing = new();
+
+        public bool ComponentFilter(IReadOnlyCollection<ComponentRefCore> components)
         {
-            return new EntityMatcher(mask);
+            m_changing.Clear();
+    
+            bool anyConditionMet = m_any.Count == 0; 
+            foreach (var component in components)
+            {
+                var type = component.RefLocator.GetT();
+                if (m_none.Contains(type)) return false;
+                if (!anyConditionMet && m_any.Contains(type)) anyConditionMet = true;
+                m_changing.Add(type);
+            }
+    
+            return anyConditionMet && m_changing.IsSupersetOf(m_all);
         }
+
+        public ulong EntityMask => m_mask;
     }
 }
