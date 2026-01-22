@@ -68,6 +68,8 @@ namespace TinyECS.Utils
         private List<SortedObject<T>> m_executed = new();
 
         private DirtyType m_dirty = DirtyType.Clean;
+        
+        private bool m_executing = false;
 
         private void SwapAndUndirty()
         {
@@ -133,6 +135,9 @@ namespace TinyECS.Utils
         /// <param name="emitter">Emitting function</param>
         public void Emit(Emitter<T> emitter)
         {
+            Assertion.IsFalse(m_executing);
+            m_executing = true;
+            
             SwapAndUndirty();
             for (var i = 0; i < m_executed.Count; i++)
             {
@@ -140,6 +145,8 @@ namespace TinyECS.Utils
                 try { emitter(exec.Element); }
                 catch (Exception e) { Log.Exp(e); }
             }
+            
+            m_executing = false;
         }
 
         /// <summary>
@@ -148,6 +155,9 @@ namespace TinyECS.Utils
         /// <param name="emitter">Emitting function</param>
         public void Emit<TArg1>(in TArg1 arg1, Emitter<T, TArg1> emitter)
         {
+            Assertion.IsFalse(m_executing);
+            m_executing = true;
+            
             SwapAndUndirty();
             for (var i = 0; i < m_executed.Count; i++)
             {
@@ -155,6 +165,8 @@ namespace TinyECS.Utils
                 try { emitter(exec.Element, arg1); }
                 catch (Exception e) { Log.Exp(e); }
             }
+            
+            m_executing = false;
         }
         
         /// <summary>
@@ -163,6 +175,9 @@ namespace TinyECS.Utils
         /// <param name="emitter">Emitting function</param>
         public void Emit<TArg1, TArg2>(in TArg1 arg1, in TArg2 arg2, Emitter<T, TArg1, TArg2> emitter)
         {
+            Assertion.IsFalse(m_executing);
+            m_executing = true;
+            
             SwapAndUndirty();
             for (var i = 0; i < m_executed.Count; i++)
             {
@@ -170,6 +185,8 @@ namespace TinyECS.Utils
                 try { emitter(exec.Element, arg1, arg2); }
                 catch (Exception e) { Log.Exp(e); }
             }
+            
+            m_executing = false;
         }
 
         /// <summary>
@@ -178,6 +195,9 @@ namespace TinyECS.Utils
         /// <param name="emitter">Emitting function</param>
         public void Emit<TArg1, TArg2, TArg3>(in TArg1 arg1, in TArg2 arg2, in TArg3 arg3, Emitter<T, TArg1, TArg2, TArg3> emitter)
         {
+            Assertion.IsFalse(m_executing);
+            m_executing = true;
+            
             SwapAndUndirty();
             for (var i = 0; i < m_executed.Count; i++)
             {
@@ -185,6 +205,8 @@ namespace TinyECS.Utils
                 try { emitter(exec.Element, arg1, arg2, arg3); }
                 catch (Exception e) { Log.Exp(e); }
             }
+            
+            m_executing = false;
         }
 
         /// <summary>
@@ -195,6 +217,9 @@ namespace TinyECS.Utils
             in TArg1 arg1, in TArg2 arg2, in TArg3 arg3, in TArg4 arg4,
             Emitter<T, TArg1, TArg2, TArg3, TArg4> emitter)
         {
+            Assertion.IsFalse(m_executing);
+            m_executing = true;
+            
             SwapAndUndirty();
             for (var i = 0; i < m_executed.Count; i++)
             {
@@ -202,6 +227,8 @@ namespace TinyECS.Utils
                 try { emitter(exec.Element, arg1, arg2, arg3, arg4); }
                 catch (Exception e) { Log.Exp(e); }
             }
+            
+            m_executing = false;
         }
         
         /// <summary>
@@ -212,6 +239,9 @@ namespace TinyECS.Utils
             in TArg1 arg1, in TArg2 arg2, in TArg3 arg3, in TArg4 arg4, in TArg5 arg5,
             Emitter<T, TArg1, TArg2, TArg3, TArg4, TArg5> emitter)
         {
+            Assertion.IsFalse(m_executing);
+            m_executing = true;
+            
             SwapAndUndirty();
             for (var i = 0; i < m_executed.Count; i++)
             {
@@ -219,6 +249,8 @@ namespace TinyECS.Utils
                 try { emitter(exec.Element, arg1, arg2, arg3, arg4, arg5); }
                 catch (Exception e) { Log.Exp(e); }
             }
+            
+            m_executing = false;
         }
 
         /// <summary>
@@ -229,6 +261,9 @@ namespace TinyECS.Utils
             in TArg1 arg1, in TArg2 arg2, in TArg3 arg3, in TArg4 arg4, in TArg5 arg5, in TArg6 arg6,
             Emitter<T, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6> emitter)
         {
+            Assertion.IsFalse(m_executing);
+            m_executing = true;
+            
             SwapAndUndirty();
             for (var i = 0; i < m_executed.Count; i++)
             {
@@ -236,6 +271,8 @@ namespace TinyECS.Utils
                 try { emitter(exec.Element, arg1, arg2, arg3, arg4, arg5, arg6); }
                 catch (Exception e) { Log.Exp(e); }
             }
+            
+            m_executing = false;
         }
 
     }
