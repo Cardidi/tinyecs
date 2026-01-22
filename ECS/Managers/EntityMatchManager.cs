@@ -7,6 +7,9 @@ using TinyECS.Utils;
 namespace TinyECS.Managers
 {
 
+    /// <summary>
+    /// Define a matcher to filter entities.
+    /// </summary>
     public interface IEntityMatcher
     {
         /// <summary>
@@ -22,6 +25,9 @@ namespace TinyECS.Managers
         public ulong EntityMask { get; }
     }
 
+    /// <summary>
+    /// Collect entities that satisfy matcher.
+    /// </summary>
     public interface IEntityCollector
     {
         /// <summary>
@@ -71,6 +77,9 @@ namespace TinyECS.Managers
         LazyRemoval = 1 << 0,
     }
 
+    /// <summary>
+    /// Manage entity collectors.
+    /// </summary>
     public sealed class EntityMatchManager : IWorldManager
     {
 

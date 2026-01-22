@@ -10,6 +10,9 @@ namespace TinyECS.Managers
     
     public delegate void EntityLoseComponent(EntityGraph entityGraph);
     
+    /// <summary>
+    /// Manages entities in the world.
+    /// </summary>
     public sealed class EntityManager : IWorldManager
     {
         public IWorld World { get; private set; }

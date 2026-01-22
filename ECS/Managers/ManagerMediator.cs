@@ -6,6 +6,9 @@ using TinyECS.Utils;
 
 namespace TinyECS.Managers
 {
+    /// <summary>
+    /// Mediator to manage world managers.
+    /// </summary>
     public sealed class ManagerMediator
     {
         private static readonly Type ParentType = typeof(IWorldManager);

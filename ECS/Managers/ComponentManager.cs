@@ -12,6 +12,9 @@ namespace TinyECS.Managers
 
     public delegate void ComponentDestroyed(ComponentRefCore component, ulong entityId);
 
+    /// <summary>
+    /// Store components in the world.
+    /// </summary>
     public abstract class ComponentStore
     {
         /// <summary>
@@ -36,6 +39,10 @@ namespace TinyECS.Managers
 
     }
 
+    /// <summary>
+    /// Store components of type <typeparamref name="TComp"/> in the world.
+    /// </summary>
+    /// <typeparam name="TComp">The type of component to manage.</typeparam>
     public sealed class ComponentStore<TComp> : ComponentStore where TComp : struct, IComponent<TComp>
     {
         
@@ -222,8 +229,10 @@ namespace TinyECS.Managers
             AutoIncreaseTriggerEdge = autoIncreaseTriggerEdge;
         }
     }
-
-
+    
+    /// <summary>
+    /// Manages components in the world.
+    /// </summary>
     public sealed class ComponentManager : IWorldManager
     {
         private static readonly Emitter<ComponentCreated, ComponentRefCore, ulong> _addEmitter = 
