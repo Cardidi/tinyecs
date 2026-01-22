@@ -2,15 +2,11 @@
 
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
+        <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>disable</Nullable>
         <RootNamespace>TinyECS</RootNamespace>
         <LangVersion>9</LangVersion>
         <AssemblyName>ECS</AssemblyName>
     </PropertyGroup>
-
-    <ItemGroup>
-      <Folder Include="Inject\" />
-    </ItemGroup>
 
 </Project>
