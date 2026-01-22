@@ -8,13 +8,15 @@ namespace TinyECS
     public readonly struct Entity
     {
 
-        private readonly EntityManager m_mgr;
+        #region Internals
+
+        private readonly IWorld m_world;
         
         private readonly ulong m_entityId;
 
         private EntityGraph _accessGraph()
         {
-            if (m_mgr != null && m_mgr.EntityCaches.TryGetValue(m_entityId, out var graph))
+            if (m_world?.GetManager<EntityManager>().EntityCaches.TryGetValue(m_entityId, out var graph) ?? false)
             {
                 return graph;
             }
@@ -22,44 +24,71 @@ namespace TinyECS
             throw new InvalidOperationException("Entity has already been destroyed.");
         }
         
-        public bool IsValid
+        private ComponentManager _accessComponentManager()
         {
-            get
+            if (m_world?.GetManager<EntityManager>().EntityCaches.ContainsKey(m_entityId) ?? false)
             {
-                if (m_mgr != null)
-                {
-                    return m_mgr.EntityCaches.ContainsKey(m_entityId);
-                }
-
-                return false;
+                return m_world.GetManager<ComponentManager>();
             }
+            
+            throw new InvalidOperationException("Entity is not associated with any world.");
         }
 
+        #endregion
+
+        public IWorld World => m_world ?? throw new InvalidOperationException("Entity is not associated with any world.");
+
+        public bool IsValid => m_world?.GetManager<EntityManager>().EntityCaches.ContainsKey(m_entityId) ?? false;
+
         public ulong EntityId => m_entityId;
+
+        public ulong Mask => _accessGraph().Mask;
+        
+        public ComponentRef<T> CreateComponent<T>() where T : struct, IComponent<T>
+        {
+            var compRef = _accessComponentManager().CreateComponent<T>(m_entityId);
+            return new ComponentRef<T>(compRef);
+        }
+        
+        public ComponentRef CreateComponent(Type componentType)
+        {
+            var compRef = _accessComponentManager().CreateComponent(m_entityId, componentType);
+            return new ComponentRef(compRef);
+        }
+        
+        public void DestroyComponent<T>(ComponentRef<T> comp) where T : struct, IComponent<T>
+        {
+            _accessComponentManager().DestroyComponent<T>(comp.Core);
+        }
+        
+        public void DestroyComponent(ComponentRef comp)
+        {
+            _accessComponentManager().DestroyComponent(comp.Core);
+        }
         
         public ComponentRef<TComp> GetComponent<TComp>() where TComp : struct, IComponent<TComp>
         {
-            throw new NotImplementedException();
+            return _accessGraph().GetComponent<TComp>();
         }
 
         public ComponentRef[] GetComponents()
         {
-            throw new NotImplementedException();
+            return _accessGraph().GetComponents();
         }
 
         public int GetComponents(ICollection<ComponentRef> results)
         {
-            throw new NotImplementedException();
+            return _accessGraph().GetComponents(results);
         }
 
         public ComponentRef<TComp>[] GetComponents<TComp>() where TComp : struct, IComponent<TComp>
         {
-            throw new NotImplementedException();
+            return _accessGraph().GetComponents<TComp>();
         }
 
         public int GetComponents<TComp>(ICollection<ComponentRef<TComp>> results) where TComp : struct, IComponent<TComp>
         {
-            throw new NotImplementedException();
+            return _accessGraph().GetComponents(results);
         }
     }
 }
