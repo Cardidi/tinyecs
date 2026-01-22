@@ -1,5 +1,8 @@
 // ReSharper disable ForCanBeConvertedToForeach
 
+using System;
+using System.Collections.Generic;
+
 namespace TinyECS.Utils
 {
     

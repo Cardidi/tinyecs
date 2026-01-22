@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace TinyECS.Utils
 {
     public static class ListPool<T>
