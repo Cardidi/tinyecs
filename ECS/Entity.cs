@@ -5,6 +5,9 @@ using TinyECS.Managers;
 
 namespace TinyECS
 {
+    /// <summary>
+    /// Represents an entity in the world.
+    /// </summary>
     public readonly struct Entity
     {
 
@@ -14,9 +17,15 @@ namespace TinyECS
         
         private readonly ulong m_entityId;
 
+        // Cache entity manager and component manager to avoid querying world multiple times.
+        
+        private readonly EntityManager m_entityManager;
+
+        private readonly ComponentManager m_componentManager;
+
         private EntityGraph _accessGraph()
         {
-            if (m_world?.GetManager<EntityManager>().EntityCaches.TryGetValue(m_entityId, out var graph) ?? false)
+            if (m_entityManager?.EntityCaches.TryGetValue(m_entityId, out var graph) ?? false)
             {
                 return graph;
             }
@@ -26,9 +35,9 @@ namespace TinyECS
         
         private ComponentManager _accessComponentManager()
         {
-            if (m_world?.GetManager<EntityManager>().EntityCaches.ContainsKey(m_entityId) ?? false)
+            if (m_componentManager != null && (m_entityManager?.EntityCaches.ContainsKey(m_entityId) ?? false))
             {
-                return m_world.GetManager<ComponentManager>();
+                return m_componentManager;
             }
             
             throw new InvalidOperationException("Entity is not associated with any world.");
@@ -89,6 +98,14 @@ namespace TinyECS
         public int GetComponents<TComp>(ICollection<ComponentRef<TComp>> results) where TComp : struct, IComponent<TComp>
         {
             return _accessGraph().GetComponents(results);
+        }
+
+        public Entity(IWorld world, ulong entityId)
+        {
+            m_world = world;
+            m_entityId = entityId;
+            m_entityManager = world.GetManager<EntityManager>();
+            m_componentManager = world.GetManager<ComponentManager>();
         }
     }
 }
