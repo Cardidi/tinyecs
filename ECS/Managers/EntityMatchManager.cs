@@ -154,49 +154,49 @@ namespace TinyECS.Managers
                     var backBuffer = Buffers[3];
                     
                     // Judge use which algorithm to update backend buffer
-                    if ((changedClash.Count * changedClash.Count) < backBuffer.Count)
-                    {
-                        var changed = 0;
-
-                        // Apply clashing
-                        for (int i = 0; i < backBuffer.Count - changed; i++)
-                        {
-                            var id = backBuffer[i];
-                            if (!changedClash.Contains(id)) continue;
-
-                            changed += 1;
-                            (backBuffer[i], backBuffer[^changed]) = (backBuffer[^changed], backBuffer[i]);
-                        }
-
-                        // Apply matching
-                        var offset = backBuffer.Count - changed;
-                        var finalSize = backBuffer.Count - changed + changedMatch.Count;
-                        backBuffer.EnsureCapacity(finalSize);
-                        for (var i = 0; i < changedMatch.Count; i++)
-                        {
-                            var bufferIdx = offset + i;
-                            if (bufferIdx >= backBuffer.Count)
-                            {
-                                backBuffer.Add(changedMatch[i]);
-                            }
-                            else
-                            {
-                                backBuffer[bufferIdx] = changedMatch[i];
-                            }
-                        }
-
-                        // Shrink array
-                        var shrinkSize = backBuffer.Count - finalSize;
-                        if (shrinkSize > 0)
-                        {
-                            backBuffer.RemoveRange(finalSize, shrinkSize);
-                        }
-                    }
-                    else
-                    {
-                        backBuffer.Clear();
-                        backBuffer.AddRange(Buffers[0]);
-                    }
+                    // if ((changedClash.Count * changedClash.Count) < backBuffer.Count)
+                    // {
+                    //     var changed = 0;
+                    //
+                    //     // Apply clashing
+                    //     for (int i = 0; i < backBuffer.Count - changed; i++)
+                    //     {
+                    //         var id = backBuffer[i];
+                    //         if (!changedClash.Contains(id)) continue;
+                    //
+                    //         changed += 1;
+                    //         (backBuffer[i], backBuffer[^changed]) = (backBuffer[^changed], backBuffer[i]);
+                    //     }
+                    //
+                    //     // Apply matching
+                    //     var offset = backBuffer.Count - changed;
+                    //     var finalSize = backBuffer.Count - changed + changedMatch.Count;
+                    //     backBuffer.EnsureCapacity(finalSize);
+                    //     for (var i = 0; i < changedMatch.Count; i++)
+                    //     {
+                    //         var bufferIdx = offset + i;
+                    //         if (bufferIdx >= backBuffer.Count)
+                    //         {
+                    //             backBuffer.Add(changedMatch[i]);
+                    //         }
+                    //         else
+                    //         {
+                    //             backBuffer[bufferIdx] = changedMatch[i];
+                    //         }
+                    //     }
+                    //
+                    //     // Shrink array
+                    //     var shrinkSize = backBuffer.Count - finalSize;
+                    //     if (shrinkSize > 0)
+                    //     {
+                    //         backBuffer.RemoveRange(finalSize, shrinkSize);
+                    //     }
+                    // }
+                    // else
+                    // {
+                    backBuffer.Clear();
+                    backBuffer.AddRange(Buffers[0]);
+                    // }
                 }
                 
             }
