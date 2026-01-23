@@ -8,9 +8,44 @@ using TinyECS.Utils;
 namespace TinyECS.Managers
 {
 
-    public delegate void ComponentCreated(ComponentRefCore component, ulong entityId);
+    public delegate void ComponentCreated(IComponentRefCore component, ulong entityId);
 
-    public delegate void ComponentDestroyed(ComponentRefCore component, ulong entityId);
+    public delegate void ComponentDestroyed(IComponentRefCore component, ulong entityId);
+    
+    /// <summary>
+    /// The core of component reference.
+    /// </summary>
+    public class ComponentRefCore : IComponentRefCore
+    {
+        public IComponentRefLocator RefLocator => m_refLocator;
+
+        public int Offset => m_offset;
+
+        public uint Version => m_version;
+
+        private IComponentRefLocator m_refLocator;
+
+        private int m_offset;
+
+        private uint m_version;
+
+        internal ComponentRefCore(IComponentRefLocator refLocator, int offset, uint version)
+        {
+            m_refLocator = refLocator;
+            m_offset = offset;
+            m_version = version;
+        }
+
+        /// <summary>
+        /// Change location of this component reference.
+        /// </summary>
+        public void Relocate(IComponentRefLocator locator, int offset, uint version)
+        {
+            m_refLocator = locator;
+            m_offset = offset;
+            m_version = version;
+        }
+    }
 
     /// <summary>
     /// Store components in the world.
@@ -25,7 +60,7 @@ namespace TinyECS.Managers
         /// <summary>
         /// Get all reference cores in this store.
         /// </summary>
-        public abstract IEnumerable<ComponentRefCore> Cores { get; }
+        public abstract IEnumerable<IComponentRefCore> Cores { get; }
 
         /// <summary>
         /// Allocate a component in this store.
@@ -45,7 +80,6 @@ namespace TinyECS.Managers
     /// <typeparam name="TComp">The type of component to manage.</typeparam>
     public sealed class ComponentStore<TComp> : ComponentStore where TComp : struct, IComponent<TComp>
     {
-        
         public struct Group
         {
             public TComp Component;
@@ -92,7 +126,7 @@ namespace TinyECS.Managers
                 return gs.Entity;
             }
 
-            public ComponentRefCore GetRefCore(int offset)
+            public IComponentRefCore GetRefCore(int offset)
             {
                 if (offset >= m_store.Allocated) return null;
                 ref var gs = ref m_store.m_components[offset];
@@ -196,16 +230,16 @@ namespace TinyECS.Managers
                 posGs.Version = swapGs.Version;
                 
                 
-                posGs.RefCore.RewriteRef(null, -1, 0);
+                posGs.RefCore.Relocate(null, -1, 0);
                 posGs.RefCore = swapGs.RefCore;
                 swapGs.RefCore = null;
-                posGs.RefCore.RewriteRef(RefLocator, pos, posGs.Version);
+                posGs.RefCore.Relocate(RefLocator, pos, posGs.Version);
 
             }
             else
             {
                 posGs.Entity = 0;
-                posGs.RefCore.RewriteRef(null, -1, 0);
+                posGs.RefCore.Relocate(null, -1, 0);
                 posGs.RefCore = null; // Do not refer it to avoid memory leak.
             }
 
@@ -235,11 +269,11 @@ namespace TinyECS.Managers
     /// </summary>
     public sealed class ComponentManager : IWorldManager
     {
-        private static readonly Emitter<ComponentCreated, ComponentRefCore, ulong> _addEmitter = 
+        private static readonly Emitter<ComponentCreated, IComponentRefCore, ulong> _addEmitter = 
             (h, a, b) => h(a, b);
         
         
-        private static readonly Emitter<ComponentDestroyed, ComponentRefCore, ulong> _rmEmitter = 
+        private static readonly Emitter<ComponentDestroyed, IComponentRefCore, ulong> _rmEmitter = 
             (h, a, b) => h(a, b);
         
         public IWorld World { get; private set; }
@@ -288,7 +322,7 @@ namespace TinyECS.Managers
             return ns;
         }
 
-        public ComponentRefCore CreateComponent<T>(ulong entityId) where T : struct, IComponent<T>
+        public IComponentRefCore CreateComponent<T>(ulong entityId) where T : struct, IComponent<T>
         {
             var store = GetComponentStore<T>();
 
@@ -299,7 +333,7 @@ namespace TinyECS.Managers
             return core;
         }
 
-        public ComponentRefCore CreateComponent(ulong entityId, Type type)
+        public IComponentRefCore CreateComponent(ulong entityId, Type type)
         {
             var store = GetComponentStore(type);
 
@@ -310,7 +344,7 @@ namespace TinyECS.Managers
             return core;
         }
 
-        public void DestroyComponent<T>(ComponentRefCore core) where T : struct, IComponent<T>
+        public void DestroyComponent<T>(IComponentRefCore core) where T : struct, IComponent<T>
         {
             if (core.RefLocator == null)
                 throw new InvalidOperationException("Component has already been destroyed!");
@@ -325,7 +359,7 @@ namespace TinyECS.Managers
             if (store.Decrease(idx)) OnComponentRemoved.Emit(core, entityId, _rmEmitter);
         }
 
-        public void DestroyComponent(ComponentRefCore core)
+        public void DestroyComponent(IComponentRefCore core)
         {
             if (core.RefLocator == null)
                 throw new InvalidOperationException("Component has already been destroyed!");

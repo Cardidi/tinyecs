@@ -18,39 +18,18 @@ namespace TinyECS.Defines
 
         public ulong GetEntityId(int offset);
 
-        public ComponentRefCore GetRefCore(int offset);
+        public IComponentRefCore GetRefCore(int offset);
     }
-    
+
+
     /// <summary>
     /// Readonly component core reference object to holds the component reference.
     /// </summary>
-    public class ComponentRefCore
+    public interface IComponentRefCore
     {
-        public IComponentRefLocator RefLocator => m_refLocator;
-
-        public int Offset => m_offset;
-
-        public uint Version => m_version;
-
-        private IComponentRefLocator m_refLocator;
-
-        private int m_offset;
-
-        private uint m_version;
-
-        internal ComponentRefCore(IComponentRefLocator refLocator, int offset, uint version)
-        {
-            m_refLocator = refLocator;
-            m_offset = offset;
-            m_version = version;
-        }
-
-        public void RewriteRef(IComponentRefLocator locator, int offset, uint version)
-        {
-            m_refLocator = locator;
-            m_offset = offset;
-            m_version = version;
-        }
+        IComponentRefLocator RefLocator { get; }
+        int Offset { get; }
+        uint Version { get; }
     }
 
     /// <summary>
@@ -58,7 +37,7 @@ namespace TinyECS.Defines
     /// </summary>
     public readonly struct ComponentRef : IEquatable<ComponentRef>
     {
-        internal readonly ComponentRefCore Core;
+        internal readonly IComponentRefCore Core;
 
         /// <summary>
         /// Check if this component reference is invalid.
@@ -123,7 +102,7 @@ namespace TinyECS.Defines
             throw new NullReferenceException("Component Reference is cut.");
         }
         
-        internal ComponentRef(ComponentRefCore core)
+        internal ComponentRef(IComponentRefCore core)
         {
             Core = core;
         }
@@ -160,7 +139,7 @@ namespace TinyECS.Defines
     /// </summary>
     public readonly struct ComponentRef<T> : IEquatable<ComponentRef<T>> where T : struct, IComponent<T>
     {
-        internal readonly ComponentRefCore Core;
+        internal readonly IComponentRefCore Core;
         
         /// <summary>
         /// Check if this component reference is invalid.
@@ -204,7 +183,7 @@ namespace TinyECS.Defines
             throw new NullReferenceException("Component Reference is cut.");
         }
 
-        internal ComponentRef(ComponentRefCore core)
+        internal ComponentRef(IComponentRefCore core)
         {
             Core = core;
         }

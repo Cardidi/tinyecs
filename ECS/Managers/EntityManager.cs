@@ -72,7 +72,7 @@ namespace TinyECS.Managers
             }
         }
 
-        private void _onComponentAdded(ComponentRefCore component, ulong entityId)
+        private void _onComponentAdded(IComponentRefCore component, ulong entityId)
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;
@@ -82,7 +82,7 @@ namespace TinyECS.Managers
             OnEntityGotComp.Emit(in gs, static (h, c) => h(c));
         }
         
-        private void _onComponentRemoved(ComponentRefCore component, ulong entityId)
+        private void _onComponentRemoved(IComponentRefCore component, ulong entityId)
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;

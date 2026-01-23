@@ -81,7 +81,7 @@ namespace TinyECS
             return collected;
         }
 
-        internal List<ComponentRefCore> RwComponents { get; } = new();
+        internal List<IComponentRefCore> RwComponents { get; } = new();
 
         private void Reset()
         {

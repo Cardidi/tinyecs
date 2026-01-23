@@ -17,7 +17,7 @@ namespace TinyECS.Managers
         /// </summary>
         /// <param name="components">All components of this entity</param>
         /// <returns>Is matched or not.</returns>
-        public bool ComponentFilter(IReadOnlyCollection<ComponentRefCore> components);
+        public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components);
 
         /// <summary>
         /// Allowed entities mask

@@ -66,7 +66,7 @@ namespace TinyECS
 
         private readonly HashSet<Type> m_changing = new();
 
-        public bool ComponentFilter(IReadOnlyCollection<ComponentRefCore> components)
+        public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components)
         {
             m_changing.Clear();
     
