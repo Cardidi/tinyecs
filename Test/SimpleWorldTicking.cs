@@ -1,4 +1,7 @@
-namespace Test;
+using TinyECS.Defines;
+
+namespace TinyECS.Test;
+
 
 public class Tests
 {

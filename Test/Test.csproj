@@ -7,6 +7,7 @@
 
         <IsPackable>false</IsPackable>
         <IsTestProject>true</IsTestProject>
+        <RootNamespace>TinyECS.Test</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
@@ -19,6 +20,10 @@
 
     <ItemGroup>
         <Using Include="NUnit.Framework"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\ECS\ECS.csproj" />
     </ItemGroup>
 
 </Project>
