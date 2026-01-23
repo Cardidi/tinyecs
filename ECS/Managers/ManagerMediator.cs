@@ -14,11 +14,14 @@ namespace TinyECS.Managers
         private static readonly Type ParentType = typeof(IWorldManager);
         
         private readonly ImmutableDictionary<Type, IWorldManager> m_managerMap;
+        
+        private readonly Injector m_injector;
 
-        public ManagerMediator(IWorld world, IReadOnlyList<Type> registeredManagers)
+        public ManagerMediator(IWorld world, Injector injector, IReadOnlyList<Type> registeredManagers)
         {
             Assertion.IsNotNull(world);
 
+            m_injector = injector;
             var built = ImmutableDictionary.CreateBuilder<Type, IWorldManager>();
             
             foreach (var mt in registeredManagers)
@@ -80,6 +83,12 @@ namespace TinyECS.Managers
                     Log.Exp(e);
                 }
             }
+        }
+
+        public void Construct()
+        {
+            if (m_injector == null) return;
+            foreach (var mgr in m_managerMap.Values) m_injector.InjectConstructor(mgr);
         }
 
         public void Shutdown()

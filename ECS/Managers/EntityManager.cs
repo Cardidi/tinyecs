@@ -15,7 +15,7 @@ namespace TinyECS.Managers
     /// </summary>
     public sealed class EntityManager : IWorldManager
     {
-        public IWorld World { get; private set; }
+        public IWorld World { get; }
         
         public Signal<EntityGetComponent> OnEntityGotComp { get; } = new();
         
@@ -119,6 +119,11 @@ namespace TinyECS.Managers
             }
             
             m_entityCaches.Clear();
+        }
+
+        public EntityManager(IWorld world)
+        {
+            World = world;
         }
     }
 }

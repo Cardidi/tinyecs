@@ -27,8 +27,9 @@ namespace TinyECS
 
         #endregion
         
-        
         public uint TickCount { get; private set; } = 0;
+        
+        public Injector Injection { get; } = new Injector();
 
         public bool Ready => m_init && !m_shutdown;
 
@@ -53,15 +54,27 @@ namespace TinyECS
 
             if (m_mediator == null)
             {
+                // Register all items.
                 using (ListPool<Type>.Get(out var reg))
                 {
-                    OnConstruct(reg);
+                    OnRegisterManager(reg);
                     if (!reg.Contains(typeof(SystemManager))) reg.Add(typeof(SystemManager));
                     
-                    m_mediator = new ManagerMediator(this, reg);
+                    m_mediator = new ManagerMediator(this, Injection, reg);
                 }
 
+                // Cache the system manager.
                 m_systemManager = (SystemManager) m_mediator.Managers[typeof(SystemManager)];
+                
+                // Fill injector
+                Injection.Register(Injection);
+                Injection.Register(this);
+                foreach (var m in m_mediator.Managers.Values) 
+                    Injection.Register(m);
+                
+                // Call only once to construct managers
+                m_mediator.Construct();
+                OnConstruct();
             }
             
             m_mediator.Boot();
@@ -118,12 +131,15 @@ namespace TinyECS
 
         #region Lifecircle Events
 
-        protected virtual void OnConstruct(IList<Type> reg)
+        protected virtual void OnRegisterManager(IList<Type> reg)
         {
             reg.Add(typeof(ComponentManager));
             reg.Add(typeof(EntityManager));
             reg.Add(typeof(EntityMatchManager));
         }
+        
+        protected virtual void OnConstruct()
+        {}
 
         protected virtual void OnStart()
         {}

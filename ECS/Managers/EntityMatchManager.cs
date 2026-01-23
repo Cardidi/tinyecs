@@ -217,7 +217,7 @@ namespace TinyECS.Managers
             }
         }
 
-        public IWorld World { get; private set; }
+        public IWorld World { get; }
 
         private readonly List<Collector> m_collectors = new();
 
@@ -328,6 +328,11 @@ namespace TinyECS.Managers
             var entityManager = World.GetManager<EntityManager>();
             entityManager.OnEntityGotComp.Remove(_onComponentAdded);
             entityManager.OnEntityLoseComp.Remove(_onComponentRemoved);
+        }
+
+        public EntityMatchManager(IWorld world)
+        {
+            World = world;
         }
     }
 }

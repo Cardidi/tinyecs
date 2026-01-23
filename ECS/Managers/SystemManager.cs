@@ -19,7 +19,7 @@ namespace TinyECS.Managers
     public sealed class SystemManager : IWorldManager
     {
 
-        public IWorld World { get; private set; }
+        public IWorld World { get; }
         
         /// <summary>
         /// All registered systems in manager.
@@ -46,6 +46,8 @@ namespace TinyECS.Managers
         private readonly Queue<Type> m_delSystems = new();
         
         private readonly Queue<Type> m_addSystems = new();
+
+        private readonly Injector m_injector;
 
         private bool m_init = false;
 
@@ -98,7 +100,9 @@ namespace TinyECS.Managers
             Assertion.IsParentTypeTo<ISystem>(systemType);
             Assertion.IsFalse(m_systemTransformer.ContainsKey(systemType));
             
-            return (ISystem) Activator.CreateInstance(systemType);
+            var sys = (ISystem) Activator.CreateInstance(systemType);
+            if (m_injector != null) m_injector.InjectConstructor(sys);
+            return sys;
         }
 
         public void TeardownSystems()
@@ -229,5 +233,11 @@ namespace TinyECS.Managers
         }
 
         #endregion
+
+        public SystemManager(IWorld world, Injector injector)
+        {
+            World = world;
+            m_injector = injector;
+        }
     }
 }

@@ -3,14 +3,14 @@ namespace TinyECS.Defines
     /// <summary>
     /// The minimal define of a system to process entities. It can only driven by world.
     /// </summary>
-    public interface ISystem : IWorldElement
+    public interface ISystem
     {
-        public ulong TickGroup { get; }
+        public ulong TickGroup { get => ulong.MaxValue; }
         
-        public void OnCreate();
+        public void OnCreate() {}
         
-        public void OnTick();
+        public void OnTick() {}
 
-        public void OnDestroy();
+        public void OnDestroy() {}
     }
 }

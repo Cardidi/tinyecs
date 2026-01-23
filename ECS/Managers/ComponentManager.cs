@@ -276,8 +276,6 @@ namespace TinyECS.Managers
         private static readonly Emitter<ComponentDestroyed, IComponentRefCore, ulong> _rmEmitter = 
             (h, a, b) => h(a, b);
         
-        public IWorld World { get; private set; }
-        
         private readonly Dictionary<Type, ComponentStore> m_compStores = new();
 
         public Signal<ComponentCreated> OnComponentCreated { get; } = new();
