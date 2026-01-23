@@ -1,7 +1,9 @@
 namespace TinyECS.Defines
 {
-    public interface IWorldElement
+    public interface IWorldElement : IWorldElement<IWorld> {}
+
+    public interface IWorldElement<out TWorld> where TWorld : IWorld
     {
-        public IWorld World { get; }
+        public TWorld World { get; }
     }
 }

@@ -23,7 +23,7 @@ namespace TinyECS.Defines
         /// <summary>
         /// Post to all managers to update for the current tick and can use tick mask to different systems.
         /// </summary>
-        public void Tick(ulong tickMask);
+        public void Tick(ulong tickMask = ulong.MaxValue);
 
         /// <summary>
         /// Post to all managers to end current tick.

@@ -13,8 +13,6 @@ namespace TinyECS.Managers
     {
         private static readonly Type ParentType = typeof(IWorldManager);
         
-        private readonly IWorld m_world;
-        
         private readonly ImmutableDictionary<Type, IWorldManager> m_managerMap;
 
         public ManagerMediator(IWorld world, IReadOnlyList<Type> registeredManagers)
@@ -23,7 +21,6 @@ namespace TinyECS.Managers
 
             var built = ImmutableDictionary.CreateBuilder<Type, IWorldManager>();
             
-            m_world = world;
             foreach (var mt in registeredManagers)
             {
                 if (mt == null)

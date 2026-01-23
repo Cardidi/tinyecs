@@ -51,7 +51,7 @@ namespace TinyECS.Managers
 
         private bool m_shutdown = false;
 
-        private void SystemPoll(ISystem system, ulong systemMask)
+        private void _systemPoll(ISystem system, ulong systemMask)
         {
             var selected = (system.TickGroup & systemMask) > 0;
             if (selected)
@@ -69,7 +69,7 @@ namespace TinyECS.Managers
             }
         }
 
-        private void CreateSystem(ISystem system)
+        private void _createSystem(ISystem system)
         {
             try
             {
@@ -81,7 +81,7 @@ namespace TinyECS.Managers
             }
         }
 
-        private void DestroySystem(ISystem system)
+        private void _destroySystem(ISystem system)
         {
             try
             {
@@ -93,7 +93,7 @@ namespace TinyECS.Managers
             }
         } 
 
-        private ISystem InstantSystem(Type systemType)
+        private ISystem _instantSystem(Type systemType)
         {
             Assertion.IsParentTypeTo<ISystem>(systemType);
             Assertion.IsFalse(m_systemTransformer.ContainsKey(systemType));
@@ -109,10 +109,10 @@ namespace TinyECS.Managers
             for (var i = m_addSystems.Count; i > 0; i--)
             {
                 var systemType = m_addSystems.Dequeue();
-                var sys = InstantSystem(systemType);
+                var sys = _instantSystem(systemType);
                 m_systemTransformer.Add(systemType, sys);
                 m_systems.Add(sys);
-                CreateSystem(sys);
+                _createSystem(sys);
             }
             
             OnSystemTeardown.Emit(World, static (h, w) => h(w));
@@ -126,7 +126,7 @@ namespace TinyECS.Managers
             for (var i = 0; i < Systems.Count; i++)
             {
                 var system = Systems[i];
-                SystemPoll(system, systemMask);
+                _systemPoll(system, systemMask);
             }
         }
 
@@ -140,7 +140,7 @@ namespace TinyECS.Managers
                 var sys = m_systemTransformer[type];
                 m_systemTransformer.Remove(type);
                 m_systems.Remove(sys);
-                DestroySystem(sys);
+                _destroySystem(sys);
             }
             
             OnSystemCleanup.Emit(World, static (h, w) => h(w));
@@ -160,10 +160,10 @@ namespace TinyECS.Managers
             }
             else
             {
-                var sys = InstantSystem(systemType);
+                var sys = _instantSystem(systemType);
                 m_systemTransformer.Add(systemType, sys);
                 m_systems.Add(sys);
-                CreateSystem(sys);
+                _createSystem(sys);
             }
         }
 
@@ -182,7 +182,7 @@ namespace TinyECS.Managers
             {
                 m_systemTransformer.Remove(systemType);
                 m_systems.Remove(sys);
-                DestroySystem(sys);
+                _destroySystem(sys);
             }
         }
 
@@ -200,10 +200,10 @@ namespace TinyECS.Managers
             m_init = true;
             if (m_addSystems.TryDequeue(out var type))
             {
-                var sys = InstantSystem(type);
+                var sys = _instantSystem(type);
                 m_systemTransformer.Add(type, sys);
                 m_systems.Add(sys);
-                CreateSystem(sys);
+                _createSystem(sys);
             }
         }
 
@@ -220,7 +220,7 @@ namespace TinyECS.Managers
                 var sys = m_systemTransformer[type];
                 m_systemTransformer.Remove(type);
                 m_systems.Remove(sys);
-                DestroySystem(sys);
+                _destroySystem(sys);
             }
         }
 
