@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Runtime.Serialization;
 using TinyECS.Defines;
 using TinyECS.Utils;
 
@@ -144,7 +145,7 @@ namespace TinyECS.Managers
 
                     try
                     {
-                        var manager = (IWorldManager) Activator.CreateInstance(implementationType, m_world);
+                        var manager = (IWorldManager) FormatterServices.GetUninitializedObject(implementationType);
                         
                         // Register manager into injector if possible
                         if (m_injector != null) m_injector.Register(manager);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.Serialization;
 using TinyECS.Defines;
 using TinyECS.Utils;
 
@@ -314,7 +315,7 @@ namespace TinyECS.Managers
             if (!createIfNotExist) return null;
 
             var storeType = typeof(ComponentStore<>).MakeGenericType(type);
-            var ns = (ComponentStore) Activator.CreateInstance(storeType);
+            var ns = (ComponentStore) FormatterServices.GetUninitializedObject(storeType);
             m_compStores.Add(storeType, ns);
             
             return ns;

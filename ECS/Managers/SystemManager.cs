@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using TinyECS.Defines;
 using TinyECS.Utils;
 
@@ -100,7 +101,7 @@ namespace TinyECS.Managers
             Assertion.IsParentTypeTo<ISystem>(systemType);
             Assertion.IsFalse(m_systemTransformer.ContainsKey(systemType));
             
-            var sys = (ISystem) Activator.CreateInstance(systemType);
+            var sys = (ISystem) FormatterServices.GetUninitializedObject(systemType);
             if (m_injector != null) m_injector.InjectConstructor(sys);
             return sys;
         }
