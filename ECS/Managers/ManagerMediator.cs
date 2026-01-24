@@ -117,7 +117,7 @@ namespace TinyECS.Managers
         {
             if (m_constructed) return; // Prevent double construction
             
-            using (ListPool<IWorldManager>.Get(out var injectable))
+            using (ListPool<IWorldManager>.Get(out var generated))
             {
                 var built = ImmutableDictionary.CreateBuilder<Type, IWorldManager>();
 
@@ -144,12 +144,15 @@ namespace TinyECS.Managers
 
                     try
                     {
-                        var manager = (IWorldManager)Activator.CreateInstance(implementationType, m_world);
+                        var manager = (IWorldManager) Activator.CreateInstance(implementationType, m_world);
+                        
+                        // Register manager into injector if possible
+                        if (m_injector != null) m_injector.Register(manager);
 
                         // Register both the interface type and implementation type to the same manager instance
                         if (interfaceType != implementationType) built.Add(interfaceType, manager);
                         built.Add(implementationType, manager);
-                        injectable.Add(manager);
+                        generated.Add(manager);
                     }
                     catch (Exception e)
                     {
@@ -163,7 +166,7 @@ namespace TinyECS.Managers
                 // Now inject dependencies for all managers
                 if (m_injector != null)
                 {
-                    foreach (var mgr in injectable) m_injector.InjectConstructor(mgr);
+                    foreach (var mgr in generated) m_injector.InjectConstructor(mgr);
                 }
             }
             

@@ -32,9 +32,8 @@ namespace TinyECS
         public Injector Injection { get; } = new Injector();
         
         /// <summary>
-        /// Get the manager mediator for managing managers.
+        /// Get the state of the world.
         /// </summary>
-        public ManagerMediator Mediator => m_mediator;
         public bool Ready => m_init && !m_shutdown;
         
         /// <summary>
@@ -71,40 +70,25 @@ namespace TinyECS
             // Create mediator if not exists
             if (m_mediator == null)
             {
-                var managerTypes = new List<Type>();
+                // Register basic dependencies for injection
+                Injection.Register(Injection);
+                Injection.Register(this);
+
+                // Create mediator and initialize managers
+                m_mediator = new ManagerMediator(this, Injection);
+                
                 try
                 {
-                    OnRegisterManager(managerTypes);
+                    OnRegisterManager(m_mediator);
                 }
                 catch (Exception e)
                 {
                     Log.Exp(e, nameof(OnRegisterManager));
                 }
                 
-                // Add core managers after user registration
-                if (!managerTypes.Contains(typeof(ComponentManager)))
-                    managerTypes.Add(typeof(ComponentManager));
-                
-                if (!managerTypes.Contains(typeof(EntityManager)))
-                    managerTypes.Add(typeof(EntityManager));
-                
-                if (!managerTypes.Contains(typeof(EntityMatchManager)))
-                    managerTypes.Add(typeof(EntityMatchManager));
-                
-                if (!managerTypes.Contains(typeof(SystemManager)))
-                    managerTypes.Add(typeof(SystemManager));
-                
-                // Create mediator and initialize managers
-                m_mediator = new ManagerMediator(this, Injection, managerTypes);
-                
-                // Register dependencies for injection
-                Injection.Register(Injection);
-                Injection.Register(this);
-                foreach (var manager in m_mediator.Managers.Values)
-                    Injection.Register(manager);
-                
                 // Construct managers using dependency injection
                 m_mediator.Construct();
+                
                 try
                 {
                     OnConstruct();
@@ -223,13 +207,36 @@ namespace TinyECS
         /// <summary>
         /// Register managers for the world.
         /// </summary>
-        protected abstract void OnRegisterManager(IList<Type> reg);
+        protected abstract void OnRegisterManager(IManagerRegister register);
 
+        /// <summary>
+        /// Construct managers for the world.
+        /// </summary>
         protected abstract void OnConstruct();
+        
+        /// <summary>
+        /// Start the world.
+        /// </summary>
         protected abstract void OnStart();
+        
+        /// <summary>
+        /// Start the tick
+        /// </summary>
         protected abstract void OnTickBegin();
+        
+        /// <summary>
+        /// Tick the world.
+        /// </summary>
         protected abstract void OnTick(ulong tickMask);
+        
+        /// <summary>
+        /// End the tick.
+        /// </summary>
         protected abstract void OnTickEnd();
+        
+        /// <summary>
+        /// Shutdown the world.
+        /// </summary>
         protected abstract void OnShutdown();
 
         #endregion
