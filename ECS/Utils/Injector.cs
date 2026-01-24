@@ -18,7 +18,7 @@ namespace TinyECS.Utils
         /// </summary>
         public void Register(object instance)
         {
-            Assertion.IsNotNull(instance);
+            Assertion.ArgumentNotNull(instance);
             m_instances.Add(instance);
         }
         
@@ -27,7 +27,7 @@ namespace TinyECS.Utils
         /// </summary>
         public void InjectConstructor(object instance)
         {
-            Assertion.IsNotNull(instance);
+            Assertion.ArgumentNotNull(instance);
             
             Type type = instance.GetType();
             

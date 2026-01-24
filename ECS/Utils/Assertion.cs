@@ -40,6 +40,15 @@ namespace TinyECS.Utils
                 throw new InvalidOperationException(errorMessage);
             }
         }
+        
+        public static void ArgumentNotNull(object obj, string message = null, [CallerMemberName] string memberName = null)
+        {
+            if (obj == null)
+            {
+                string errorMessage = message?? memberName;
+                throw new ArgumentNullException(errorMessage);
+            }
+        }
 
         public static void IsParentTypeTo<TParent>(Type children, string message = null, [CallerMemberName] string memberName = null)
         {
