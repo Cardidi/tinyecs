@@ -1,4 +1,7 @@
+using System;
+using TinyECS.Defines;
 using TinyECS.Managers;
+using TinyECS.Utils;
 
 namespace TinyECS
 {
@@ -51,5 +54,71 @@ namespace TinyECS
 
         protected override void OnShutdown()
         {}
+        
+        /// <summary>
+        /// Finds a system of the specified type.
+        /// </summary>
+        /// <typeparam name="T">The type of system to find, must implement ISystem</typeparam>
+        /// <returns>The system instance if found, otherwise default(T)</returns>
+        public T FindSystem<T>() where T : class, ISystem
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (System != null && System.SystemTransformer.TryGetValue(typeof(T), out var system))
+            {
+                return (T)system;
+            }
+            
+            return null;
+        }
+
+        #region PublicAPI
+
+        /// <summary>
+        /// Creates a new entity in the world.
+        /// </summary>
+        /// <returns>A new Entity instance</returns>
+        public Entity CreateEntity(ulong mask = ulong.MaxValue)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (Entity != null && Component != null)
+            {
+                var entityGraph = Entity.CreateEntity(mask); // Default mask
+                return new Entity(this, entityGraph.EntityId, Entity, Component);
+            }
+            
+            throw new InvalidOperationException("Core ECS managers are not available");
+        }
+        
+        /// <summary>
+        /// Destroys an entity by its ID.
+        /// </summary>
+        /// <param name="entityId">The ID of the entity to destroy</param>
+        public void DestroyEntity(ulong entityId)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+
+            if (Entity == null || Component == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
+            
+            Entity.DestroyEntity(entityId);
+        }
+        
+        /// <summary>
+        /// Destroys an entity.
+        /// </summary>
+        /// <param name="entity">The entity to destroy</param>
+        public void DestroyEntity(Entity entity)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (entity.IsValid)
+            {
+                DestroyEntity(entity.EntityId);
+            }
+        }
+
+        #endregion
     }
 }

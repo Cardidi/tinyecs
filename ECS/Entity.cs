@@ -100,12 +100,12 @@ namespace TinyECS
             return _accessGraph().GetComponents(results);
         }
 
-        public Entity(IWorld world, ulong entityId)
+        public Entity(IWorld world, ulong entityId, EntityManager entityManager = null, ComponentManager componentManager = null)
         {
             m_world = world;
             m_entityId = entityId;
-            m_entityManager = world.GetManager<EntityManager>();
-            m_componentManager = world.GetManager<ComponentManager>();
+            m_entityManager = entityManager ?? world.GetManager<EntityManager>();
+            m_componentManager = componentManager ?? world.GetManager<ComponentManager>();
         }
     }
 }
