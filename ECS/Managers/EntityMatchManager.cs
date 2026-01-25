@@ -219,6 +219,8 @@ namespace TinyECS.Managers
 
         public IWorld World { get; }
 
+        private EntityManager m_entityManager;
+
         private readonly List<Collector> m_collectors = new();
 
         private void _onComponentAdded(EntityGraph entityGraph)
@@ -298,9 +300,8 @@ namespace TinyECS.Managers
 
         public void OnManagerCreated()
         {
-            var entityManager = World.GetManager<EntityManager>();
-            entityManager.OnEntityGotComp.Add(_onComponentAdded);
-            entityManager.OnEntityLoseComp.Add(_onComponentRemoved);
+            m_entityManager.OnEntityGotComp.Add(_onComponentAdded);
+            m_entityManager.OnEntityLoseComp.Add(_onComponentRemoved);
         }
 
         public void OnWorldStarted()
@@ -325,14 +326,14 @@ namespace TinyECS.Managers
             
             m_collectors.Clear();
 
-            var entityManager = World.GetManager<EntityManager>();
-            entityManager.OnEntityGotComp.Remove(_onComponentAdded);
-            entityManager.OnEntityLoseComp.Remove(_onComponentRemoved);
+            m_entityManager.OnEntityGotComp.Remove(_onComponentAdded);
+            m_entityManager.OnEntityLoseComp.Remove(_onComponentRemoved);
         }
 
-        public EntityMatchManager(IWorld world)
+        public EntityMatchManager(IWorld world, EntityManager entityManager)
         {
             World = world;
+            m_entityManager = entityManager;
         }
     }
 }

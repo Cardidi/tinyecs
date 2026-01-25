@@ -27,6 +27,8 @@ namespace TinyECS.Managers
 
         private bool m_shutdown = false;
         
+        private ComponentManager m_compManager;
+        
         private readonly Dictionary<ulong, EntityGraph> m_entityCaches = new();
 
         public IReadOnlyDictionary<ulong, EntityGraph> EntityCaches => m_entityCaches;
@@ -44,6 +46,7 @@ namespace TinyECS.Managers
             m_entityCaches.Add(id, graph);
             graph.Mask = mask;
             graph.EntityId = id;
+            graph.WishDestroy = false;
             
             return graph;
         }
@@ -93,9 +96,8 @@ namespace TinyECS.Managers
 
         public void OnManagerCreated()
         {
-            var compManager = World.GetManager<ComponentManager>();
-            compManager.OnComponentCreated.Add(_onComponentAdded);
-            compManager.OnComponentRemoved.Add(_onComponentRemoved);
+            m_compManager.OnComponentCreated.Add(_onComponentAdded);
+            m_compManager.OnComponentRemoved.Add(_onComponentRemoved);
 
             m_init = true;
         }
@@ -108,9 +110,8 @@ namespace TinyECS.Managers
         {
             m_shutdown = true;
             
-            var compManager = World.GetManager<ComponentManager>();
-            compManager.OnComponentCreated.Remove(_onComponentAdded);
-            compManager.OnComponentRemoved.Remove(_onComponentRemoved);
+            m_compManager.OnComponentCreated.Remove(_onComponentAdded);
+            m_compManager.OnComponentRemoved.Remove(_onComponentRemoved);
             
             foreach (var ec in m_entityCaches.Values)
             {
@@ -121,9 +122,10 @@ namespace TinyECS.Managers
             m_entityCaches.Clear();
         }
 
-        public EntityManager(IWorld world)
+        public EntityManager(IWorld world, ComponentManager compManager)
         {
             World = world;
+            m_compManager = compManager;
         }
     }
 }
