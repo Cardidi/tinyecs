@@ -155,6 +155,7 @@ namespace TinyECS.Managers
         {
             Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             Assertion.IsNotNull(systemType);
+            Assertion.IsParentTypeTo<ISystem>(systemType);
             
             if (m_init)
             {
@@ -176,6 +177,8 @@ namespace TinyECS.Managers
         {
             Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             Assertion.IsNotNull(systemType);
+            Assertion.IsParentTypeTo<ISystem>(systemType);
+            
             var sys = m_systemTransformer[systemType];
 
             if (m_init)

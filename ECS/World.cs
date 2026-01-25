@@ -119,6 +119,97 @@ namespace TinyECS
             }
         }
 
+        /// <summary>
+        /// Registers a system with the world.
+        /// </summary>
+        /// <param name="systemType">The type of system to register</param>
+        public void RegisterSystem(Type systemType)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+
+            if (System != null)
+            {
+                System.RegisterSystem(systemType);
+            } else
+            {
+                throw new InvalidOperationException("System manager is not available");
+            }
+        }
+
+        /// <summary>
+        /// Registers a system with the world.
+        /// </summary>
+        /// <typeparam name="T">The type of system to register, must implement ISystem</typeparam>
+        public void RegisterSystem<T>() where T : class, ISystem
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (System != null)
+            {
+                System.RegisterSystem(typeof(T));
+            }
+            else
+            {
+                throw new InvalidOperationException("System manager is not available");
+            }
+        }
+
+        /// <summary>
+        /// Unregisters a system from the world.
+        /// </summary>
+        /// <param name="systemType">The type of system to unregister</param>
+        public void UnregisterSystem(Type systemType)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (System != null)
+            {
+                System.UnregisterSystem(systemType);
+            } else
+            {
+                throw new InvalidOperationException("System manager is not available");
+            }
+        }
+        
+        /// <summary>
+        /// Unregisters a system from the world.
+        /// </summary>
+        /// <typeparam name="T">The type of system to unregister, must implement ISystem</typeparam>
+        public void UnregisterSystem<T>() where T : class, ISystem
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (System != null)
+            {
+                System.UnregisterSystem(typeof(T));
+            }
+            else
+            {
+                throw new InvalidOperationException("System manager is not available");
+            }
+        }
+
+        /// <summary>
+        /// Creates a new entity collector with the specified matcher and flag.
+        /// </summary>
+        /// <param name="matcher">The entity matcher to use for filtering entities</param>
+        /// <param name="flag">The flag to use for the collector</param>
+        /// <returns>A new IEntityCollector instance</returns>
+        public IEntityCollector CreateCollector(IEntityMatcher matcher,
+            EntityCollectorFlag flag = EntityCollectorFlag.None)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+
+            if (EntityMatch != null)
+            {
+                return EntityMatch.MakeCollector(flag, matcher);
+            }
+            else
+            {
+                throw new InvalidOperationException("EntityMatch manager is not available");
+            }
+        }
+
         #endregion
     }
 }
