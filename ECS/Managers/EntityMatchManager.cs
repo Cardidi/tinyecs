@@ -5,61 +5,7 @@ using TinyECS.Utils;
 
 namespace TinyECS.Managers
 {
-    /// <summary>
-    /// Defines a matcher to filter entities based on their components.
-    /// </summary>
-    public interface IEntityMatcher
-    {
-        /// <summary>
-        /// Determines if an entity satisfies all requirements of the matcher.
-        /// </summary>
-        /// <param name="components">All components of this entity</param>
-        /// <returns>True if the entity matches the criteria, false otherwise</returns>
-        public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components);
-
-        /// <summary>
-        /// Gets the allowed entities mask for this matcher.
-        /// </summary>
-        public ulong EntityMask { get; }
-    }
-
-    /// <summary>
-    /// Collects entities that satisfy a matcher's criteria.
-    /// </summary>
-    public interface IEntityCollector : IDisposable
-    {
-        /// <summary>
-        /// Gets the matcher of this collector.
-        /// </summary>
-        public IEntityMatcher Matcher { get; }
-
-        /// <summary>
-        /// Gets all collected entities.
-        /// </summary>
-        public IReadOnlyList<ulong> Collected { get; }
-        
-        /// <summary>
-        /// Gets all collected entities with realtime matching.
-        /// Do not use foreach on this field as it may change during iteration!
-        /// </summary>
-        public IReadOnlyList<ulong> RealtimeCollected { get; }
-
-        /// <summary>
-        /// Gets entities that were previously excluded from collector and are now being collected.
-        /// </summary>
-        public IReadOnlyList<ulong> Matching { get; }
-
-        /// <summary>
-        /// Gets entities that were previously included in collector and are now being excluded.
-        /// </summary>
-        public IReadOnlyList<ulong> Clashing { get; }
-
-        /// <summary>
-        /// Summarizes previous changes and starts a new collecting phase.
-        /// </summary>
-        public void Change();
-    }
-
+    
     /// <summary>
     /// Flags that control the behavior of entity collectors.
     /// </summary>
