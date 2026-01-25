@@ -37,7 +37,7 @@ namespace TinyECS.Utils
             
             public void Dispose()
             {
-                if (m_delegate != null || m_signal == null) return;
+                if (m_delegate == null || m_signal == null) return;
 
                 var idx = SortedObject<T>.IndexOfElement(m_signal.m_expose, in m_delegate);
                 if (idx >= 0)
@@ -97,7 +97,7 @@ namespace TinyECS.Utils
         public SignalDisposal Add(T dg, int order = 0, bool allowDuplication = true)
         {
             var save = new SortedObject<T>(order, dg);
-            if (allowDuplication && SortedObject<T>.IndexOfElement(m_expose, in dg) >= 0)
+            if (!allowDuplication && SortedObject<T>.IndexOfElement(m_expose, in dg) >= 0)
                 throw new InvalidOperationException("Could not add a same delegate for twice!");
 
             m_dirty = DirtyType.DirtyAndReorder;

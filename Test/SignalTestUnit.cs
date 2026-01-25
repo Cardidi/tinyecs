@@ -57,7 +57,7 @@ namespace TinyECS.Test
             Action listener = () => { };
             
             // Act
-            _signal.Add(listener, allowDuplication: false);
+            _signal.Add(listener);
             
             // Assert
             Assert.Throws<InvalidOperationException>(() => _signal.Add(listener, allowDuplication: false));
