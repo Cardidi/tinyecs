@@ -263,6 +263,13 @@ namespace TinyECS.Managers
             AutoIncreaseRate = autoIncreaseRate;
             AutoIncreaseTriggerEdge = autoIncreaseTriggerEdge;
         }
+        
+        public ComponentStore()
+        {
+            m_components = new Group[100];
+            AutoIncreaseRate = 2;
+            AutoIncreaseTriggerEdge = 1.2f;
+        }
     }
     
     /// <summary>
@@ -307,15 +314,15 @@ namespace TinyECS.Managers
         
         public ComponentStore GetComponentStore(Type type, bool createIfNotExist = true) 
         {
-            if (m_compStores.TryGetValue(type, out var store))
+            var storeType = typeof(ComponentStore<>).MakeGenericType(type);
+            if (m_compStores.TryGetValue(storeType, out var store))
             {
                 return store;
             }
 
             if (!createIfNotExist) return null;
-
-            var storeType = typeof(ComponentStore<>).MakeGenericType(type);
-            var ns = (ComponentStore) FormatterServices.GetUninitializedObject(storeType);
+            
+            var ns = (ComponentStore) Activator.CreateInstance(storeType);
             m_compStores.Add(storeType, ns);
             
             return ns;
