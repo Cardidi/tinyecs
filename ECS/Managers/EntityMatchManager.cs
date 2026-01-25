@@ -26,7 +26,7 @@ namespace TinyECS.Managers
     /// <summary>
     /// Collects entities that satisfy a matcher's criteria.
     /// </summary>
-    public interface IEntityCollector
+    public interface IEntityCollector : IDisposable
     {
         /// <summary>
         /// Gets the matcher of this collector.
@@ -136,6 +136,11 @@ namespace TinyECS.Managers
             public IReadOnlyList<ulong> Clashing => Buffers[2];
 
             /// <summary>
+            /// Gets a value indicating whether this collector has been destroyed.
+            /// </summary>
+            public bool Destroyed { get; private set; } = false;
+
+            /// <summary>
             /// Summarizes previous changes and starts a new collecting phase.
             /// </summary>
             public void Change()
@@ -186,15 +191,40 @@ namespace TinyECS.Managers
             }
 
             /// <summary>
+            /// Releases all resources used by the collector.
+            /// Clears all buffers and removes the collector from the EntityMatchManager.
+            /// </summary>
+            public void Dispose()
+            {
+                Destroyed = true;
+                
+                // Clear all buffers
+                for (var i = 0; i < Buffers.Length; i++)
+                {
+                    Buffers[i].Clear();
+                }
+                
+                // Remove this collector from the manager's list
+                m_manager._onDisposeCollector(this);
+            }
+
+            /// <summary>
             /// Initializes a new instance of the Collector class.
             /// </summary>
             /// <param name="matcher">The matcher to use for filtering entities</param>
             /// <param name="flag">The flags that control collector behavior</param>
-            public Collector(IEntityMatcher matcher, EntityCollectorFlag flag)
+            /// <param name="manager">The manager that created this collector</param>
+            public Collector(IEntityMatcher matcher, EntityCollectorFlag flag, EntityMatchManager manager)
             {
                 Matcher = matcher;
                 Flag = flag;
+                m_manager = manager;
             }
+
+            /// <summary>
+            /// Reference to the manager that created this collector.
+            /// </summary>
+            private readonly EntityMatchManager m_manager;
         }
 
         /// <summary>
@@ -286,6 +316,15 @@ namespace TinyECS.Managers
         }
 
         /// <summary>
+        /// Removes a collector from the manager's list.
+        /// </summary>
+        /// <param name="collector">The collector to remove</param>
+        private bool _onDisposeCollector(Collector collector)
+        {
+            return m_collectors.Remove(collector);
+        }
+        
+        /// <summary>
         /// Creates a new entity collector with the specified matcher.
         /// </summary>
         /// <param name="matcher">The matcher to use for filtering entities</param>
@@ -305,7 +344,7 @@ namespace TinyECS.Managers
         {
             Assertion.IsNotNull(matcher);
             
-            var c = new Collector(matcher, flag);
+            var c = new Collector(matcher, flag, this);
             m_collectors.Add(c);
 
             var entityManager = World.GetManager<EntityManager>();

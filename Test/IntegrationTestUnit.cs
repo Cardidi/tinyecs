@@ -337,7 +337,7 @@ namespace TinyECS.Test
             
             public void OnDestroy()
             {
-                m_movementCollector = null;
+                m_movementCollector.Dispose();
             }
 
             public MovementSystem(World world)
@@ -415,8 +415,8 @@ namespace TinyECS.Test
             
             public void OnDestroy()
             {
-                m_positionOnlyCollector = null;
-                m_positionAndVelocityCollector = null;
+                m_positionOnlyCollector.Dispose();
+                m_positionAndVelocityCollector.Dispose();
             }
         
             public DynamicComponentSystem(World world)
