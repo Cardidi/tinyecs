@@ -81,6 +81,31 @@ namespace TinyECS
             return collected;
         }
 
+        public bool HasComponent<TComp>() where TComp : struct, IComponent<TComp>
+        {
+            for (var i = 0; i < RwComponents.Count; i++)
+            {
+                var r = RwComponents[i];
+                var loc = r.RefLocator;
+                if (loc.IsT(typeof(TComp))) return true;
+            }
+            
+            return false;
+        }
+        
+        public int GetComponentCount<TComp>() where TComp : struct, IComponent<TComp>
+        {
+            var collected = 0;
+            for (var i = 0; i < RwComponents.Count; i++)
+            {
+                var r = RwComponents[i];
+                var loc = r.RefLocator;
+                if (loc.IsT(typeof(TComp))) collected += 1;
+            }
+            
+            return collected;
+        }
+
         internal List<IComponentRefCore> RwComponents { get; } = new();
 
         private void Reset()

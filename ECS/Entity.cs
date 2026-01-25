@@ -99,6 +99,11 @@ namespace TinyECS
         {
             return _accessGraph().GetComponents(results);
         }
+        
+        public bool HasComponent<T>() where T : struct, IComponent<T>
+        {
+            return _accessGraph().HasComponent<T>();
+        }
 
         public Entity(IWorld world, ulong entityId, EntityManager entityManager = null, ComponentManager componentManager = null)
         {
