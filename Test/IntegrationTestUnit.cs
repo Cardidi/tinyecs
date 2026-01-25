@@ -307,20 +307,42 @@ namespace TinyECS.Test
         private class MovementSystem : ISystem
         {
             public bool ProcessedEntities { get; private set; }
+         
+            private World m_world;
+            
+            private IEntityCollector m_movementCollector;
             
             public void OnCreate()
             {
+                m_movementCollector = m_world.CreateCollector(
+                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>()
+                );
             }
             
             public void OnTick()
             {
-                // In a real implementation, we would query for entities with PositionComponent and VelocityComponent
-                // and update their positions based on velocity
-                ProcessedEntities = true;
+                m_movementCollector.Change();
+                foreach (var entityId in m_movementCollector.Collected)
+                {
+                    ProcessedEntities = true;
+                    
+                    var entity = m_world.GetEntity(entityId);
+                    var positionComp = entity.GetComponent<PositionComponent>();
+                    var velocityComp = entity.GetComponent<VelocityComponent>();
+                    
+                    positionComp.RW.X += velocityComp.RO.X;
+                    positionComp.RW.Y += velocityComp.RO.Y;
+                }
             }
             
             public void OnDestroy()
             {
+                m_movementCollector = null;
+            }
+
+            public MovementSystem(World world)
+            {
+                m_world = world;
             }
         }
         
@@ -367,19 +389,39 @@ namespace TinyECS.Test
             public int PositionOnlyCount { get; private set; }
             public int PositionAndVelocityCount { get; private set; }
             
+            private World m_world;
+            private IEntityCollector m_positionOnlyCollector;
+            private IEntityCollector m_positionAndVelocityCollector;
+            
             public void OnCreate()
             {
+                m_positionOnlyCollector = m_world.CreateCollector(
+                    EntityMatcher.With.OfAll<PositionComponent>().OfNone<VelocityComponent>()
+                );
+                
+                m_positionAndVelocityCollector = m_world.CreateCollector(
+                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>()
+                );
             }
             
             public void OnTick()
             {
-                // In a real implementation, we would query for entities with different component combinations
-                PositionOnlyCount = 1;
-                PositionAndVelocityCount = 0;
+                m_positionOnlyCollector.Change();
+                m_positionAndVelocityCollector.Change();
+                
+                PositionOnlyCount = m_positionOnlyCollector.Collected.Count;
+                PositionAndVelocityCount = m_positionAndVelocityCollector.Collected.Count;
             }
             
             public void OnDestroy()
             {
+                m_positionOnlyCollector = null;
+                m_positionAndVelocityCollector = null;
+            }
+        
+            public DynamicComponentSystem(World world)
+            {
+                m_world = world;
             }
         }
         
