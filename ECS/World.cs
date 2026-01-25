@@ -122,15 +122,13 @@ namespace TinyECS
         /// <returns>The Entity instance if found, otherwise default(Entity)</returns>
         public Entity GetEntity(ulong entityId)
         {
-            if (Entity != null && Component != null)
-            {
-                var entityGraph = Entity.GetEntity(entityId);
-                if (entityGraph != null)
-                {
-                    return new Entity(this, entityId, Entity, Component);
-                }
-            }
+            if (Entity == null || Component == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
             
+            var entityGraph = Entity.GetEntity(entityId);
+            if (entityGraph != null)
+                return new Entity(this, entityId, Entity, Component);
+
             return default;
         }
 
@@ -143,14 +141,12 @@ namespace TinyECS
         public Entity CreateEntity(ulong mask = ulong.MaxValue)
         {
             Assertion.IsTrue(Ready, "World is not ready");
+
+            if (Entity == null || Component == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
             
-            if (Entity != null && Component != null)
-            {
-                var entityGraph = Entity.CreateEntity(mask); // Default mask
-                return new Entity(this, entityGraph.EntityId, Entity, Component);
-            }
-            
-            throw new InvalidOperationException("Core ECS managers are not available");
+            var entityGraph = Entity.CreateEntity(mask); // Default mask
+            return new Entity(this, entityGraph.EntityId, Entity, Component);
         }
         
         /// <summary>
@@ -191,13 +187,11 @@ namespace TinyECS
         {
             Assertion.IsTrue(Ready, "World is not ready");
 
-            if (System != null)
-            {
-                System.RegisterSystem(systemType);
-            } else
-            {
-                throw new InvalidOperationException("System manager is not available");
-            }
+            if (System == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
+            
+            System.RegisterSystem(systemType);
+            
         }
 
         /// <summary>
@@ -208,15 +202,12 @@ namespace TinyECS
         public void RegisterSystem<T>() where T : class, ISystem
         {
             Assertion.IsTrue(Ready, "World is not ready");
+
+            if (System == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
             
-            if (System != null)
-            {
-                System.RegisterSystem(typeof(T));
-            }
-            else
-            {
-                throw new InvalidOperationException("System manager is not available");
-            }
+            System.RegisterSystem(typeof(T));
+            
         }
 
         /// <summary>
@@ -227,14 +218,11 @@ namespace TinyECS
         public void UnregisterSystem(Type systemType)
         {
             Assertion.IsTrue(Ready, "World is not ready");
+
+            if (System == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
             
-            if (System != null)
-            {
-                System.UnregisterSystem(systemType);
-            } else
-            {
-                throw new InvalidOperationException("System manager is not available");
-            }
+            System.UnregisterSystem(systemType);
         }
         
         /// <summary>
@@ -245,15 +233,11 @@ namespace TinyECS
         public void UnregisterSystem<T>() where T : class, ISystem
         {
             Assertion.IsTrue(Ready, "World is not ready");
+
+            if (System == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
             
-            if (System != null)
-            {
-                System.UnregisterSystem(typeof(T));
-            }
-            else
-            {
-                throw new InvalidOperationException("System manager is not available");
-            }
+            System.UnregisterSystem(typeof(T));
         }
 
         /// <summary>
@@ -268,14 +252,10 @@ namespace TinyECS
         {
             Assertion.IsTrue(Ready, "World is not ready");
 
-            if (EntityMatch != null)
-            {
-                return EntityMatch.MakeCollector(flag, matcher);
-            }
-            else
-            {
-                throw new InvalidOperationException("EntityMatch manager is not available");
-            }
+            if (EntityMatch == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
+            
+            return EntityMatch.MakeCollector(flag, matcher);
         }
 
         #endregion
