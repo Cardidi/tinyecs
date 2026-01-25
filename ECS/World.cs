@@ -27,15 +27,15 @@ namespace TinyECS
         }
 
         protected override void OnConstruct()
+        {}
+
+        protected override void OnStart()
         {
             EntityMatch = GetManager<EntityMatchManager>();
             Entity = GetManager<EntityManager>();
             Component = GetManager<ComponentManager>();
             System = GetManager<SystemManager>();
         }
-
-        protected override void OnStart()
-        {}
 
         protected override void OnTickBegin()
         {
