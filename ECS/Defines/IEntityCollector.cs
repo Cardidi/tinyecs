@@ -4,6 +4,34 @@ using System.Collections.Generic;
 namespace TinyECS.Defines
 {
     /// <summary>
+    /// Flags that control the behavior of entity collectors.
+    /// </summary>
+    [Flags]
+    public enum EntityCollectorFlag
+    {
+        /// <summary>
+        /// No special behavior.
+        /// </summary>
+        None = 0,
+        
+        /// <summary>
+        /// Don't remove elements from Collected before Change() is called.
+        /// </summary>
+        LazyRemove = 1 << 0,
+        
+        /// <summary>
+        /// Don't add elements from Collected before Change() is called.
+        /// </summary>
+        LazyAdd = 1 << 1,
+
+        /// <summary>
+        /// Don't change elements in Collected before Change() is called.
+        /// </summary>
+        Lazy = LazyRemove | LazyAdd,
+
+    }
+    
+    /// <summary>
     /// Collects entities that satisfy a matcher's criteria.
     /// </summary>
     public interface IEntityCollector : IDisposable
