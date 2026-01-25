@@ -54,6 +54,8 @@ namespace TinyECS.Managers
 
         private bool m_shutdown = false;
 
+        private bool m_changable = true;
+
         private void _systemPoll(ISystem system, ulong systemMask)
         {
             var selected = (system.TickGroup & systemMask) > 0;
@@ -110,6 +112,8 @@ namespace TinyECS.Managers
         {
             Assertion.IsTrue(m_init, "SystemManager is not initialized yet.");
             Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
+            
+            m_changable = false;
 
             for (var i = m_addSystems.Count; i > 0; i--)
             {
@@ -148,6 +152,8 @@ namespace TinyECS.Managers
                 _destroySystem(sys);
             }
             
+            m_changable = true;
+            
             OnSystemCleanup.Emit(World, static (h, w) => h(w));
         }
         
@@ -156,20 +162,20 @@ namespace TinyECS.Managers
             Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             Assertion.IsNotNull(systemType);
             Assertion.IsParentTypeTo<ISystem>(systemType);
-            
-            if (m_init)
-            {
-                if (!m_systemTransformer.ContainsKey(systemType) && !m_addSystems.Contains(systemType))
-                {
-                    m_addSystems.Enqueue(systemType);
-                }
-            }
-            else
+
+            if (m_changable)
             {
                 var sys = _instantSystem(systemType);
                 m_systemTransformer.Add(systemType, sys);
                 m_systems.Add(sys);
                 _createSystem(sys);
+            }
+            else
+            {
+                if (!m_systemTransformer.ContainsKey(systemType) && !m_addSystems.Contains(systemType))
+                {
+                    m_addSystems.Enqueue(systemType);
+                }
             }
         }
 
@@ -181,16 +187,16 @@ namespace TinyECS.Managers
             
             var sys = m_systemTransformer[systemType];
 
-            if (m_init)
-            {
-                if (m_systemTransformer.ContainsKey(systemType) && !m_delSystems.Contains(systemType))
-                    m_delSystems.Enqueue(systemType);
-            }
-            else
+            if (m_changable)
             {
                 m_systemTransformer.Remove(systemType);
                 m_systems.Remove(sys);
                 _destroySystem(sys);
+            }
+            else
+            {
+                if (m_systemTransformer.ContainsKey(systemType) && !m_delSystems.Contains(systemType))
+                    m_delSystems.Enqueue(systemType);
             }
         }
 
