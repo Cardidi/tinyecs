@@ -75,6 +75,25 @@ namespace TinyECS
         #region PublicAPI
 
         /// <summary>
+        /// Gets an entity by its ID.
+        /// </summary>
+        /// <param name="entityId">The ID of the entity to retrieve</param>
+        /// <returns>The Entity instance if found, otherwise default(Entity)</returns>
+        public Entity GetEntity(ulong entityId)
+        {
+            if (Entity != null && Component != null)
+            {
+                var entityGraph = Entity.GetEntity(entityId);
+                if (entityGraph != null)
+                {
+                    return new Entity(this, entityId, Entity, Component);
+                }
+            }
+            
+            return default;
+        }
+
+        /// <summary>
         /// Creates a new entity in the world.
         /// </summary>
         /// <returns>A new Entity instance</returns>

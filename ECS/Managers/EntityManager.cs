@@ -58,6 +58,7 @@ namespace TinyECS.Managers
             
             if (m_entityCaches.TryGetValue(entityId, out var graph))
                 return graph;
+            
             return null;
         }
         
