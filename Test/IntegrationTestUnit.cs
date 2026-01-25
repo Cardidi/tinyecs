@@ -225,7 +225,7 @@ namespace TinyECS.Test
             world.Startup();
             
             const int tickCount = 100;
-            const int entitiesPerTick = 10;
+            const int entitiesPerTick = 100;
             
             world.RegisterSystem<MovementSystem>();
             var entities = new List<Entity>();
