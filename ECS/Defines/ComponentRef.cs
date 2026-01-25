@@ -176,9 +176,23 @@ namespace TinyECS.Defines
         }
         
         /// <summary>
-        /// Access component data directly.
+        /// Access readable component data directly.
         /// </summary>
-        public ref T R
+        public ref readonly T RO
+        {
+            get 
+            {
+                if (Core?.RefLocator == null || !Core.RefLocator.NotNull(Core.Version, Core.Offset))
+                    throw new NullReferenceException("Component Reference is cut.");
+            
+                return ref Core.RefLocator.Get<T>(Core.Offset);
+            }
+        }
+        
+        /// <summary>
+        /// Access readable & writable component data directly.
+        /// </summary>
+        public ref T RW
         {
             get 
             {
