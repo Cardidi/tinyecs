@@ -84,6 +84,16 @@ namespace TinyECS.Managers
             m_offset = offset;
             m_version = version;
         }
+
+        /// <summary>
+        /// Invalidates this component reference.
+        /// </summary>
+        public void Invalidate()
+        {
+            m_refLocator = null;
+            m_offset = -1;
+            m_version = 0;
+        }
     }
 
     /// <summary>
@@ -363,16 +373,14 @@ namespace TinyECS.Managers
             if (canSwap)
             {
                 // Move the last component to the position of the component being removed
-                ref var swapGs = ref m_components[pos];
+                ref var swapGs = ref m_components[swap];
 
-                posGs.Entity = swapGs.Entity;
-                posGs.Version = swapGs.Version;
+                (posGs.Entity, swapGs.Entity) = (swapGs.Entity, posGs.Entity);
+                (posGs.Version, swapGs.Version) = (swapGs.Version, posGs.Version);
+                (posGs.RefCore, swapGs.RefCore) = (swapGs.RefCore, posGs.RefCore);
                 
-                
-                posGs.RefCore.Relocate(null, -1, 0);
-                posGs.RefCore = swapGs.RefCore;
-                swapGs.RefCore = null;
                 posGs.RefCore.Relocate(RefLocator, pos, posGs.Version);
+                swapGs.RefCore.Invalidate();
 
             }
             else
