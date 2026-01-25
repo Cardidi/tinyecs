@@ -98,8 +98,8 @@ namespace TinyECS.Utils
             Type parameterType = parameter.ParameterType;
             
             // Try to find the best matching instance
-            object bestMatch = null;
-            int bestMatchScore = -1;
+            // object bestMatch = null;
+            // int bestMatchScore = -1;
             
             foreach (var instance in m_instances)
             {
@@ -115,21 +115,23 @@ namespace TinyECS.Utils
                 // Check if the instance is assignable to the parameter type
                 if (parameterType.IsAssignableFrom(instanceType))
                 {
-                    // Calculate match score - more derived types get higher scores
-                    int score = _calculateInheritanceDepth(instanceType, parameterType);
-                    if (score > bestMatchScore)
-                    {
-                        bestMatchScore = score;
-                        bestMatch = instance;
-                    }
+                    resolved = instance;
+                    return true;
+                    // // Calculate match score - more derived types get higher scores
+                    // int score = _calculateInheritanceDepth(instanceType, parameterType);
+                    // if (score > bestMatchScore)
+                    // {
+                    //     bestMatchScore = score;
+                    //     bestMatch = instance;
+                    // }
                 }
             }
             
-            if (bestMatch != null)
-            {
-                resolved = bestMatch;
-                return true;
-            }
+            // if (bestMatch != null)
+            // {
+            //     resolved = bestMatch;
+            //     return true;
+            // }
             
             resolved = null;
             return false;
@@ -138,19 +140,19 @@ namespace TinyECS.Utils
         /// <summary>
         /// Calculate the inheritance depth between two types.
         /// </summary>
-        private int _calculateInheritanceDepth(Type derivedType, Type baseType)
-        {
-            int depth = 0;
-            Type currentType = derivedType;
-            
-            while (currentType != null && currentType != baseType)
-            {
-                currentType = currentType.BaseType;
-                depth++;
-            }
-            
-            // If we reached null, the types are not in the same inheritance hierarchy
-            return currentType == baseType ? depth : -1;
-        }
+        // private int _calculateInheritanceDepth(Type derivedType, Type baseType)
+        // {
+        //     int depth = 0;
+        //     Type currentType = derivedType;
+        //     
+        //     while (currentType != null && currentType != baseType)
+        //     {
+        //         currentType = currentType.BaseType;
+        //         depth++;
+        //     }
+        //     
+        //     // If we reached null, the types are not in the same inheritance hierarchy
+        //     return currentType == baseType ? depth : -1;
+        // }
     }
 }
