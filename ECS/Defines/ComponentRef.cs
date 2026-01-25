@@ -27,8 +27,19 @@ namespace TinyECS.Defines
     /// </summary>
     public interface IComponentRefCore
     {
+        /// <summary>
+        /// Locator of this component reference.
+        /// </summary>
         IComponentRefLocator RefLocator { get; }
+        
+        /// <summary>
+        /// Address of this component reference.
+        /// </summary>
         int Offset { get; }
+        
+        /// <summary>
+        /// Version of this component reference.
+        /// </summary>
         uint Version { get; }
     }
 
@@ -37,7 +48,10 @@ namespace TinyECS.Defines
     /// </summary>
     public readonly struct ComponentRef : IEquatable<ComponentRef>
     {
-        internal readonly IComponentRefCore Core;
+        /// <summary>
+        /// Core of this component reference.
+        /// </summary>
+        public readonly IComponentRefCore Core;
 
         /// <summary>
         /// Check if this component reference is invalid.
@@ -139,7 +153,10 @@ namespace TinyECS.Defines
     /// </summary>
     public readonly struct ComponentRef<T> : IEquatable<ComponentRef<T>> where T : struct, IComponent<T>
     {
-        internal readonly IComponentRefCore Core;
+        /// <summary>
+        /// Core of this component reference.
+        /// </summary>
+        public readonly IComponentRefCore Core;
         
         /// <summary>
         /// Check if this component reference is invalid.
