@@ -3,90 +3,92 @@ using System.Collections.Generic;
 using TinyECS.Defines;
 using TinyECS.Utils;
 
-
 namespace TinyECS.Managers
 {
-
     /// <summary>
-    /// Define a matcher to filter entities.
+    /// Defines a matcher to filter entities based on their components.
     /// </summary>
     public interface IEntityMatcher
     {
         /// <summary>
-        /// Judge if an entity satisfy all requirements of matcher.
+        /// Determines if an entity satisfies all requirements of the matcher.
         /// </summary>
         /// <param name="components">All components of this entity</param>
-        /// <returns>Is matched or not.</returns>
+        /// <returns>True if the entity matches the criteria, false otherwise</returns>
         public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components);
 
         /// <summary>
-        /// Allowed entities mask
+        /// Gets the allowed entities mask for this matcher.
         /// </summary>
         public ulong EntityMask { get; }
     }
 
     /// <summary>
-    /// Collect entities that satisfy matcher.
+    /// Collects entities that satisfy a matcher's criteria.
     /// </summary>
     public interface IEntityCollector
     {
         /// <summary>
-        /// The matcher of this collector.
+        /// Gets the matcher of this collector.
         /// </summary>
         public IEntityMatcher Matcher { get; }
 
         /// <summary>
-        /// All collected entities.
+        /// Gets all collected entities.
         /// </summary>
         public IReadOnlyList<ulong> Collected { get; }
         
         /// <summary>
-        /// All collected entities and will use realtime entities matching. Do not use foreach on this field!
+        /// Gets all collected entities with realtime matching.
+        /// Do not use foreach on this field as it may change during iteration!
         /// </summary>
         public IReadOnlyList<ulong> RealtimeCollected { get; }
 
         /// <summary>
-        /// Entities that previously excluded from collector and being collected after previous change.
+        /// Gets entities that were previously excluded from collector and are now being collected.
         /// </summary>
         public IReadOnlyList<ulong> Matching { get; }
 
         /// <summary>
-        /// Entities that previously included in collector and being excluded after previous change.
+        /// Gets entities that were previously included in collector and are now being excluded.
         /// </summary>
         public IReadOnlyList<ulong> Clashing { get; }
 
         /// <summary>
-        /// Summary previous changes and start a new collecting phase.
+        /// Summarizes previous changes and starts a new collecting phase.
         /// </summary>
         public void Change();
-
     }
 
-
+    /// <summary>
+    /// Flags that control the behavior of entity collectors.
+    /// </summary>
     [Flags]
     public enum EntityCollectorFlag
     {
         /// <summary>
-        /// Do nothing special.
+        /// No special behavior.
         /// </summary>
         None = 0,
         
         /// <summary>
-        /// Don't remove element from RealtimeCollected before change.
+        /// Don't remove elements from RealtimeCollected before Change() is called.
         /// </summary>
         LazyRemoval = 1 << 0,
     }
 
     /// <summary>
-    /// Manage entity collectors.
+    /// Manages entity collectors and matching logic.
+    /// This class is responsible for creating and updating collectors based on entity changes.
     /// </summary>
     public sealed class EntityMatchManager : IWorldManager
     {
-
+        /// <summary>
+        /// Internal implementation of IEntityCollector that manages multiple buffers for efficient entity tracking.
+        /// </summary>
         private class Collector : IEntityCollector
         {
-
-            // buffers:
+            // Buffers:
             // [0] = collected
             // [1] = matching
             // [2] = clashing
@@ -103,37 +105,55 @@ namespace TinyECS.Managers
                 new List<ulong>(),
             };
             
+            /// <summary>
+            /// Gets the flags for this collector.
+            /// </summary>
             public EntityCollectorFlag Flag { get; }
 
+            /// <summary>
+            /// Gets the matcher for this collector.
+            /// </summary>
             public IEntityMatcher Matcher { get; }
 
+            /// <summary>
+            /// Gets the collected entities buffer.
+            /// </summary>
             public IReadOnlyList<ulong> Collected => Buffers[0];
 
+            /// <summary>
+            /// Gets the realtime collected entities buffer.
+            /// </summary>
             public IReadOnlyList<ulong> RealtimeCollected => Buffers[3];
 
+            /// <summary>
+            /// Gets the matching entities buffer.
+            /// </summary>
             public IReadOnlyList<ulong> Matching => Buffers[1];
 
+            /// <summary>
+            /// Gets the clashing entities buffer.
+            /// </summary>
             public IReadOnlyList<ulong> Clashing => Buffers[2];
 
+            /// <summary>
+            /// Summarizes previous changes and starts a new collecting phase.
+            /// </summary>
             public void Change()
             {
-                
+                // Swap buffers: [0] <- [3], [1] <- [4], [2] <- [5], [3] <- [0], [4] <- [1], [5] <- [2]
                 (Buffers[0], Buffers[1], Buffers[2], Buffers[3], Buffers[4], Buffers[5]) = 
                     (Buffers[3], Buffers[4], Buffers[5], Buffers[0], Buffers[1], Buffers[2]);
                 
-                // Clear prev matching and clashing
-                
+                // Clear previous matching and clashing buffers
                 Buffers[4].Clear();
                 Buffers[5].Clear();
                 
                 // Copy data from back to front
-                
                 var processRemoval = (Flag & EntityCollectorFlag.LazyRemoval) > 0;
                 var changedMatch = Buffers[1];
                 var changedClash = Buffers[2];
 
                 // Must do a removal at the end of match and start of change
-                
                 if (processRemoval && changedClash.Count > 0)
                 {
                     var frontBuffer = Buffers[0];
@@ -156,60 +176,20 @@ namespace TinyECS.Managers
                     }
                 }
 
-                // Update back buffer to ensure align to front buffer
-                
+                // Update back buffer to ensure alignment with front buffer
                 if (changedMatch.Count + changedClash.Count > 0)
                 {
                     var backBuffer = Buffers[3];
-                    
-                    // Judge use which algorithm to update backend buffer
-                    // if ((changedClash.Count * changedClash.Count) < backBuffer.Count)
-                    // {
-                    //     var changed = 0;
-                    //
-                    //     // Apply clashing
-                    //     for (int i = 0; i < backBuffer.Count - changed; i++)
-                    //     {
-                    //         var id = backBuffer[i];
-                    //         if (!changedClash.Contains(id)) continue;
-                    //
-                    //         changed += 1;
-                    //         (backBuffer[i], backBuffer[^changed]) = (backBuffer[^changed], backBuffer[i]);
-                    //     }
-                    //
-                    //     // Apply matching
-                    //     var offset = backBuffer.Count - changed;
-                    //     var finalSize = backBuffer.Count - changed + changedMatch.Count;
-                    //     backBuffer.EnsureCapacity(finalSize);
-                    //     for (var i = 0; i < changedMatch.Count; i++)
-                    //     {
-                    //         var bufferIdx = offset + i;
-                    //         if (bufferIdx >= backBuffer.Count)
-                    //         {
-                    //             backBuffer.Add(changedMatch[i]);
-                    //         }
-                    //         else
-                    //         {
-                    //             backBuffer[bufferIdx] = changedMatch[i];
-                    //         }
-                    //     }
-                    //
-                    //     // Shrink array
-                    //     var shrinkSize = backBuffer.Count - finalSize;
-                    //     if (shrinkSize > 0)
-                    //     {
-                    //         backBuffer.RemoveRange(finalSize, shrinkSize);
-                    //     }
-                    // }
-                    // else
-                    // {
                     backBuffer.Clear();
                     backBuffer.AddRange(Buffers[0]);
-                    // }
                 }
-                
             }
 
+            /// <summary>
+            /// Initializes a new instance of the Collector class.
+            /// </summary>
+            /// <param name="matcher">The matcher to use for filtering entities</param>
+            /// <param name="flag">The flags that control collector behavior</param>
             public Collector(IEntityMatcher matcher, EntityCollectorFlag flag)
             {
                 Matcher = matcher;
@@ -217,22 +197,44 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Gets the world this manager belongs to.
+        /// </summary>
         public IWorld World { get; }
 
+        /// <summary>
+        /// Reference to the entity manager for tracking entity changes.
+        /// </summary>
         private EntityManager m_entityManager;
 
+        /// <summary>
+        /// List of all collectors managed by this manager.
+        /// </summary>
         private readonly List<Collector> m_collectors = new();
 
+        /// <summary>
+        /// Handles component addition events.
+        /// </summary>
+        /// <param name="entityGraph">The entity graph that changed</param>
         private void _onComponentAdded(EntityGraph entityGraph)
         {
             _onEntityChanged(entityGraph, true);
         }
 
+        /// <summary>
+        /// Handles component removal events.
+        /// </summary>
+        /// <param name="entityGraph">The entity graph that changed</param>
         private void _onComponentRemoved(EntityGraph entityGraph)
         {
             _onEntityChanged(entityGraph, false);
         }
 
+        /// <summary>
+        /// Handles entity changes by updating all collectors.
+        /// </summary>
+        /// <param name="entityGraph">The entity graph that changed</param>
+        /// <param name="isAdd">True if components were added, false if removed</param>
         private void _onEntityChanged(EntityGraph entityGraph, bool isAdd)
         {
             foreach (var collector in m_collectors)
@@ -241,6 +243,13 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Updates a collector based on entity changes.
+        /// </summary>
+        /// <param name="collector">The collector to update</param>
+        /// <param name="entityGraph">The entity graph that changed</param>
+        /// <param name="isAdd">True if components were added, false if removed</param>
+        /// <param name="init">True if this is during initialization</param>
         private void _changeCollector(Collector collector, EntityGraph entityGraph, bool isAdd, bool init)
         {
             var matcher = collector.Matcher;
@@ -276,12 +285,22 @@ namespace TinyECS.Managers
             }
         }
 
-
+        /// <summary>
+        /// Creates a new entity collector with the specified matcher.
+        /// </summary>
+        /// <param name="matcher">The matcher to use for filtering entities</param>
+        /// <returns>A new entity collector</returns>
         public IEntityCollector MakeCollector(IEntityMatcher matcher)
         {
             return MakeCollector(EntityCollectorFlag.None, matcher);
         }
 
+        /// <summary>
+        /// Creates a new entity collector with the specified matcher and flags.
+        /// </summary>
+        /// <param name="flag">Flags that control collector behavior</param>
+        /// <param name="matcher">The matcher to use for filtering entities</param>
+        /// <returns>A new entity collector</returns>
         public IEntityCollector MakeCollector(EntityCollectorFlag flag, IEntityMatcher matcher)
         {
             Assertion.IsNotNull(matcher);
@@ -298,20 +317,32 @@ namespace TinyECS.Managers
             return c;
         }
 
+        /// <summary>
+        /// Called when the manager is created.
+        /// </summary>
         public void OnManagerCreated()
         {
             m_entityManager.OnEntityGotComp.Add(_onComponentAdded);
             m_entityManager.OnEntityLoseComp.Add(_onComponentRemoved);
         }
 
+        /// <summary>
+        /// Called when the world starts.
+        /// </summary>
         public void OnWorldStarted()
         {
         }
 
+        /// <summary>
+        /// Called when the world ends.
+        /// </summary>
         public void OnWorldEnded()
         {
         }
 
+        /// <summary>
+        /// Called when the manager is destroyed.
+        /// </summary>
         public void OnManagerDestroyed()
         {
             foreach (var collector in m_collectors)
@@ -330,6 +361,11 @@ namespace TinyECS.Managers
             m_entityManager.OnEntityLoseComp.Remove(_onComponentRemoved);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the EntityMatchManager class.
+        /// </summary>
+        /// <param name="world">The world this manager belongs to</param>
+        /// <param name="entityManager">The entity manager for tracking entity changes</param>
         public EntityMatchManager(IWorld world, EntityManager entityManager)
         {
             World = world;

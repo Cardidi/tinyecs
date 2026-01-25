@@ -6,16 +6,25 @@ namespace TinyECS.Utils
 {
     /// <summary>
     /// Simple constructor-based dependency injector.
+    /// This class provides basic dependency injection functionality by resolving constructor parameters
+    /// from registered instances.
     /// </summary>
     public sealed class Injector
     {
+        /// <summary>
+        /// List of registered instances available for injection.
+        /// </summary>
         private readonly List<object> m_instances = new();
         
+        /// <summary>
+        /// Gets a read-only view of the registered instances.
+        /// </summary>
         public IReadOnlyList<object> Instances => m_instances;
         
         /// <summary>
-        /// Register an instance for dependency injection by type.
+        /// Registers an instance for dependency injection by type.
         /// </summary>
+        /// <param name="instance">The instance to register</param>
         public void Register(object instance)
         {
             Assertion.ArgumentNotNull(instance);
@@ -23,8 +32,9 @@ namespace TinyECS.Utils
         }
         
         /// <summary>
-        /// Inject dependencies into the provided instance by calling its constructor.
+        /// Injects dependencies into the provided instance by calling its constructor.
         /// </summary>
+        /// <param name="instance">The instance to inject dependencies into</param>
         public void InjectConstructor(object instance)
         {
             Assertion.ArgumentNotNull(instance);
@@ -91,16 +101,16 @@ namespace TinyECS.Utils
         }
         
         /// <summary>
-        /// Resolve a parameter by its type.
+        /// Resolves a parameter by its type from the registered instances.
         /// </summary>
+        /// <param name="parameter">The parameter information to resolve</param>
+        /// <param name="resolved">The resolved instance</param>
+        /// <returns>True if the parameter was successfully resolved, false otherwise</returns>
         private bool _resolveParameter(ParameterInfo parameter, out object resolved)
         {
             Type parameterType = parameter.ParameterType;
             
             // Try to find the best matching instance
-            // object bestMatch = null;
-            // int bestMatchScore = -1;
-            
             foreach (var instance in m_instances)
             {
                 Type instanceType = instance.GetType();
@@ -117,42 +127,11 @@ namespace TinyECS.Utils
                 {
                     resolved = instance;
                     return true;
-                    // // Calculate match score - more derived types get higher scores
-                    // int score = _calculateInheritanceDepth(instanceType, parameterType);
-                    // if (score > bestMatchScore)
-                    // {
-                    //     bestMatchScore = score;
-                    //     bestMatch = instance;
-                    // }
                 }
             }
-            
-            // if (bestMatch != null)
-            // {
-            //     resolved = bestMatch;
-            //     return true;
-            // }
             
             resolved = null;
             return false;
         }
-        
-        /// <summary>
-        /// Calculate the inheritance depth between two types.
-        /// </summary>
-        // private int _calculateInheritanceDepth(Type derivedType, Type baseType)
-        // {
-        //     int depth = 0;
-        //     Type currentType = derivedType;
-        //     
-        //     while (currentType != null && currentType != baseType)
-        //     {
-        //         currentType = currentType.BaseType;
-        //         depth++;
-        //     }
-        //     
-        //     // If we reached null, the types are not in the same inheritance hierarchy
-        //     return currentType == baseType ? depth : -1;
-        // }
     }
 }

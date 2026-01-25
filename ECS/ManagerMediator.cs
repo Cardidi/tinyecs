@@ -7,6 +7,10 @@ using TinyECS.Utils;
 
 namespace TinyECS.Managers
 {
+    /// <summary>
+    /// Interface for registering world managers with the ECS framework.
+    /// Provides methods to register managers by interface and implementation types.
+    /// </summary>
     public interface IManagerRegister
     {
         /// <summary>
@@ -33,18 +37,46 @@ namespace TinyECS.Managers
     }
     
     /// <summary>
-    /// Mediator to manage world managers.
+    /// Mediator class that manages the lifecycle and registration of world managers.
+    /// Handles manager registration, construction, dependency injection, and lifecycle events.
     /// </summary>
     public sealed class ManagerMediator : IManagerRegister
     {
+        /// <summary>
+        /// Reference to the parent type for all managers.
+        /// </summary>
         private static readonly Type ParentType = typeof(IWorldManager);
         
+        /// <summary>
+        /// Immutable dictionary mapping manager types to their instances.
+        /// </summary>
         private ImmutableDictionary<Type, IWorldManager> m_managerMap;
+        
+        /// <summary>
+        /// List of registered manager types before construction.
+        /// </summary>
         private readonly List<(Type interfaceType, Type implementationType)> m_registeredManagers;
+        
+        /// <summary>
+        /// Reference to the world this mediator belongs to.
+        /// </summary>
         private readonly IWorld m_world;
+        
+        /// <summary>
+        /// Dependency injector for manager instances.
+        /// </summary>
         private readonly Injector m_injector;
+        
+        /// <summary>
+        /// Flag indicating whether managers have been constructed.
+        /// </summary>
         private bool m_constructed = false;
 
+        /// <summary>
+        /// Initializes a new instance of the ManagerMediator class.
+        /// </summary>
+        /// <param name="world">The world this mediator belongs to</param>
+        /// <param name="injector">Dependency injector for manager instances</param>
         public ManagerMediator(IWorld world, Injector injector)
         {
             Assertion.IsNotNull(world);
@@ -57,10 +89,21 @@ namespace TinyECS.Managers
             m_managerMap = ImmutableDictionary<Type, IWorldManager>.Empty;
         }
         
+        /// <summary>
+        /// Gets a value indicating whether the managers have been booted (initialized).
+        /// </summary>
         public bool Booted { get; private set; }
         
+        /// <summary>
+        /// Gets a read-only dictionary of all constructed managers.
+        /// </summary>
         public IReadOnlyDictionary<Type, IWorldManager> Managers => m_managerMap;
 
+        /// <summary>
+        /// Registers a manager implementation with its interface type.
+        /// </summary>
+        /// <typeparam name="TImp">The interface type of the manager</typeparam>
+        /// <typeparam name="TMgr">The implementation type of the manager, which should inherit from TImp</typeparam>
         public void RegisterManager<TImp, TMgr>() where TMgr : TImp where TImp : IWorldManager
         {
             Assertion.IsFalse(m_constructed, "Cannot register manager after construction");
@@ -78,6 +121,11 @@ namespace TinyECS.Managers
             m_registeredManagers.Add((typeof(TImp), typeof(TMgr)));
         }
 
+        /// <summary>
+        /// Registers a manager directly by its concrete type.
+        /// The same type is used as both interface and implementation.
+        /// </summary>
+        /// <typeparam name="T">The concrete manager type that implements IWorldManager</typeparam>
         public void RegisterManager<T>() where T : IWorldManager
         {
             Assertion.IsFalse(m_constructed, "Cannot register manager after construction");
@@ -98,6 +146,11 @@ namespace TinyECS.Managers
             m_registeredManagers.Add((type, type));
         }
 
+        /// <summary>
+        /// Checks if a manager type (either interface or implementation) is already registered.
+        /// </summary>
+        /// <typeparam name="T">The type to check for registration</typeparam>
+        /// <returns>True if the type is already registered, false otherwise</returns>
         public bool AlreadyRegistered<T>()
         {
             var type = typeof(T);
@@ -114,6 +167,10 @@ namespace TinyECS.Managers
             return false;
         }
 
+        /// <summary>
+        /// Constructs all registered managers and initializes the manager map.
+        /// This method should be called once after all managers have been registered.
+        /// </summary>
         public void Construct()
         {
             if (m_constructed) return; // Prevent double construction
@@ -145,6 +202,7 @@ namespace TinyECS.Managers
 
                     try
                     {
+                        // Create manager instance without calling constructor
                         var manager = (IWorldManager) FormatterServices.GetUninitializedObject(implementationType);
                         
                         // Register manager into injector if possible
@@ -174,6 +232,10 @@ namespace TinyECS.Managers
             m_constructed = true;
         }
 
+        /// <summary>
+        /// Boots up all registered managers by calling their lifecycle methods.
+        /// Calls OnManagerCreated and OnWorldStarted for all managers.
+        /// </summary>
         public void Boot()
         {
             if (Booted) return;
@@ -181,6 +243,7 @@ namespace TinyECS.Managers
             
             var managersToUse = m_managerMap;
             
+            // First, call OnManagerCreated for all managers
             foreach (var mgr in managersToUse.Values)
             {
                 try
@@ -193,6 +256,7 @@ namespace TinyECS.Managers
                 }
             }
             
+            // Then, call OnWorldStarted for all managers
             foreach (var mgr in managersToUse.Values)
             {
                 try
@@ -206,6 +270,10 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Shuts down all registered managers by calling their lifecycle methods.
+        /// Calls OnWorldEnded and OnManagerDestroyed for all managers.
+        /// </summary>
         public void Shutdown()
         {
             if (!Booted) return;
@@ -213,6 +281,7 @@ namespace TinyECS.Managers
             
             var managersToUse = m_managerMap;
             
+            // First, call OnWorldEnded for all managers
             foreach (var mgr in managersToUse.Values)
             {
                 try
@@ -225,7 +294,7 @@ namespace TinyECS.Managers
                 }
             }
 
-            
+            // Then, call OnManagerDestroyed for all managers
             foreach (var mgr in managersToUse.Values)
             {
                 try

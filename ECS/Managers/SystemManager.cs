@@ -6,56 +6,118 @@ using TinyECS.Utils;
 
 namespace TinyECS.Managers
 {
+    /// <summary>
+    /// Delegate for system teardown events.
+    /// </summary>
+    /// <param name="world">The world in which the system is being torn down</param>
     public delegate void SystemTeardown(IWorld world);
     
+    /// <summary>
+    /// Delegate for system begin execution events.
+    /// </summary>
+    /// <param name="world">The world in which the system is executing</param>
+    /// <param name="system">The system that is about to execute</param>
     public delegate void SystemBeginExecute(IWorld world, ISystem system);
     
+    /// <summary>
+    /// Delegate for system end execution events.
+    /// </summary>
+    /// <param name="world">The world in which the system is executing</param>
+    /// <param name="system">The system that has finished executing</param>
     public delegate void SystemEndExecute(IWorld world, ISystem system);
 
+    /// <summary>
+    /// Delegate for system cleanup events.
+    /// </summary>
+    /// <param name="world">The world in which the system is being cleaned up</param>
     public delegate void SystemCleanup(IWorld world);
     
     /// <summary>
-    /// Plugin on manage system schedule and tick.
+    /// Manages system scheduling and execution in the world.
+    /// This class is responsible for registering, unregistering, and executing systems in the correct order.
     /// </summary>
     public sealed class SystemManager : IWorldManager
     {
-
+        /// <summary>
+        /// Gets the world this manager belongs to.
+        /// </summary>
         public IWorld World { get; }
         
         /// <summary>
-        /// All registered systems in manager.
+        /// Gets all registered systems in the manager.
         /// </summary>
         public IReadOnlyList<ISystem> Systems => m_systems;
 
         /// <summary>
-        /// All registered systems in manager by type.
+        /// Gets all registered systems in the manager by type.
         /// </summary>
         public IReadOnlyDictionary<Type, ISystem> SystemTransformer => m_systemTransformer;
         
+        /// <summary>
+        /// Event triggered when systems are being torn down.
+        /// </summary>
         public Signal<SystemTeardown> OnSystemTeardown { get; } = new();
         
+        /// <summary>
+        /// Event triggered when a system begins execution.
+        /// </summary>
         public Signal<SystemBeginExecute> OnSystemBeginExecute { get; } = new();
         
+        /// <summary>
+        /// Event triggered when a system ends execution.
+        /// </summary>
         public Signal<SystemEndExecute> OnSystemEndExecute { get; } = new();
         
+        /// <summary>
+        /// Event triggered when systems are being cleaned up.
+        /// </summary>
         public Signal<SystemCleanup> OnSystemCleanup { get; } = new();
 
+        /// <summary>
+        /// List of all registered systems.
+        /// </summary>
         private readonly List<ISystem> m_systems = new();
 
+        /// <summary>
+        /// Dictionary mapping system types to their instances.
+        /// </summary>
         private readonly Dictionary<Type, ISystem> m_systemTransformer = new();
         
+        /// <summary>
+        /// Queue of system types to be removed.
+        /// </summary>
         private readonly Queue<Type> m_delSystems = new();
         
+        /// <summary>
+        /// Queue of system types to be added.
+        /// </summary>
         private readonly Queue<Type> m_addSystems = new();
 
+        /// <summary>
+        /// Dependency injector for systems.
+        /// </summary>
         private readonly Injector m_injector;
 
+        /// <summary>
+        /// Indicates whether the manager has been initialized.
+        /// </summary>
         private bool m_init = false;
 
+        /// <summary>
+        /// Indicates whether the manager is shutting down.
+        /// </summary>
         private bool m_shutdown = false;
 
+        /// <summary>
+        /// Indicates whether systems can be added or removed.
+        /// </summary>
         private bool m_changable = true;
 
+        /// <summary>
+        /// Executes a system if it matches the system mask.
+        /// </summary>
+        /// <param name="system">The system to potentially execute</param>
+        /// <param name="systemMask">The mask that determines which systems should execute</param>
         private void _systemPoll(ISystem system, ulong systemMask)
         {
             var selected = (system.TickGroup & systemMask) > 0;
@@ -74,6 +136,10 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Initializes a system by calling its OnCreate method.
+        /// </summary>
+        /// <param name="system">The system to initialize</param>
         private void _createSystem(ISystem system)
         {
             try
@@ -86,6 +152,10 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Destroys a system by calling its OnDestroy method.
+        /// </summary>
+        /// <param name="system">The system to destroy</param>
         private void _destroySystem(ISystem system)
         {
             try
@@ -98,6 +168,11 @@ namespace TinyECS.Managers
             }
         } 
 
+        /// <summary>
+        /// Instantiates a system of the specified type.
+        /// </summary>
+        /// <param name="systemType">The type of system to instantiate</param>
+        /// <returns>The instantiated system</returns>
         private ISystem _instantSystem(Type systemType)
         {
             Assertion.IsParentTypeTo<ISystem>(systemType);
@@ -108,6 +183,9 @@ namespace TinyECS.Managers
             return sys;
         }
 
+        /// <summary>
+        /// Sets up all queued systems for execution.
+        /// </summary>
         public void TeardownSystems()
         {
             Assertion.IsTrue(m_init, "SystemManager is not initialized yet.");
@@ -127,6 +205,10 @@ namespace TinyECS.Managers
             OnSystemTeardown.Emit(World, static (h, w) => h(w));
         }
         
+        /// <summary>
+        /// Executes all systems that match the specified system mask.
+        /// </summary>
+        /// <param name="systemMask">The mask that determines which systems should execute</param>
         public void ExecuteSystems(ulong systemMask)
         {
             Assertion.IsTrue(m_init, "SystemManager is not initialized yet.");
@@ -139,6 +221,9 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Cleans up all queued systems for removal.
+        /// </summary>
         public void CleanupSystems()
         {
             Assertion.IsTrue(m_init, "SystemManager is not initialized yet.");
@@ -157,6 +242,10 @@ namespace TinyECS.Managers
             OnSystemCleanup.Emit(World, static (h, w) => h(w));
         }
         
+        /// <summary>
+        /// Registers a system type with the manager.
+        /// </summary>
+        /// <param name="systemType">The type of system to register</param>
         public void RegisterSystem(Type systemType)
         {
             Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
@@ -179,6 +268,10 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Unregisters a system type from the manager.
+        /// </summary>
+        /// <param name="systemType">The type of system to unregister</param>
         public void UnregisterSystem(Type systemType)
         {
             Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
@@ -200,15 +293,20 @@ namespace TinyECS.Managers
             }
         }
 
-
         #region EventHandlers
 
+        /// <summary>
+        /// Called when the manager is created.
+        /// </summary>
         public void OnManagerCreated()
         {
             m_init = false;
             m_shutdown = false;
         }
 
+        /// <summary>
+        /// Called when the world starts.
+        /// </summary>
         public void OnWorldStarted()
         {
             m_init = true;
@@ -221,6 +319,9 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Called when the world ends.
+        /// </summary>
         public void OnWorldEnded()
         {
             m_shutdown = true;
@@ -238,12 +339,20 @@ namespace TinyECS.Managers
             }
         }
 
+        /// <summary>
+        /// Called when the manager is destroyed.
+        /// </summary>
         public void OnManagerDestroyed()
         {
         }
 
         #endregion
 
+        /// <summary>
+        /// Initializes a new instance of the SystemManager class.
+        /// </summary>
+        /// <param name="world">The world this manager belongs to</param>
+        /// <param name="injector">The dependency injector for systems</param>
         public SystemManager(IWorld world, Injector injector)
         {
             World = world;
