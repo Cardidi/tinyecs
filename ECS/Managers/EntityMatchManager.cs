@@ -287,7 +287,7 @@ namespace TinyECS.Managers
         /// <returns>A new entity collector</returns>
         public IEntityCollector MakeCollector(IEntityMatcher matcher)
         {
-            return MakeCollector(EntityCollectorFlag.None, matcher);
+            return MakeCollector(EntityCollectorFlag.Lazy, matcher);
         }
 
         /// <summary>
