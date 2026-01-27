@@ -509,7 +509,7 @@ namespace TinyECS.Managers
         public ComponentStore GetComponentStore(Type type, bool createIfNotExist = true) 
         {
             var storeType = typeof(ComponentStore<>).MakeGenericType(type);
-            if (m_compStores.TryGetValue(storeType, out var store))
+            if (m_compStores.TryGetValue(type, out var store))
             {
                 return store;
             }
