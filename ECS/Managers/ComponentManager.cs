@@ -540,43 +540,6 @@ namespace TinyECS.Managers
         }
 
         /// <summary>
-        /// Creates a new component of the specified type for the specified entity.
-        /// </summary>
-        /// <param name="entityId">The ID of the entity that will own the component</param>
-        /// <param name="type">The component type</param>
-        /// <returns>The core reference for the created component</returns>
-        public IComponentRefCore CreateComponent(ulong entityId, Type type)
-        {
-            var store = GetComponentStore(type);
-
-            var allocComp = store.Increase(entityId);
-            var core = store.RefLocator.GetRefCore(allocComp);
-            
-            OnComponentCreated.Emit(core, entityId, _addEmitter);
-            return core;
-        }
-
-        /// <summary>
-        /// Destroys a component of type T.
-        /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <param name="core">The core reference of the component to destroy</param>
-        public void DestroyComponent<T>(IComponentRefCore core) where T : struct, IComponent<T>
-        {
-            if (core.RefLocator == null)
-                throw new InvalidOperationException("Component has already been destroyed!");
-            
-            if (!core.RefLocator.IsT(typeof(T)))
-                throw new InvalidOperationException("Component type is unmatched!");
-
-            var idx = core.Offset;
-            var store = GetComponentStore<T>();
-            var entityId = store.ComponentGroups[idx].Entity;
-            
-            if (store.Decrease(idx)) OnComponentRemoved.Emit(core, entityId, _rmEmitter);
-        }
-
-        /// <summary>
         /// Destroys a component.
         /// </summary>
         /// <param name="core">The core reference of the component to destroy</param>

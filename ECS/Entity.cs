@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TinyECS.Defines;
 using TinyECS.Managers;
+using TinyECS.Utils;
 
 namespace TinyECS
 {
@@ -104,17 +105,6 @@ namespace TinyECS
         }
         
         /// <summary>
-        /// Creates a new component of the specified type and attaches it to this entity.
-        /// </summary>
-        /// <param name="componentType">Type of component to create</param>
-        /// <returns>A typeless reference to the newly created component</returns>
-        public ComponentRef CreateComponent(Type componentType)
-        {
-            var compRef = _accessComponentManager().CreateComponent(m_entityId, componentType);
-            return new ComponentRef(compRef);
-        }
-        
-        /// <summary>
         /// Destroys a component of type T attached to this entity.
         /// </summary>
         /// <typeparam name="T">Component type to destroy, must be a struct implementing IComponent&lt;T&gt;</typeparam>
@@ -122,6 +112,7 @@ namespace TinyECS
         public void DestroyComponent<T>(ComponentRef<T> comp) where T : struct, IComponent<T>
         {
             _accessComponentManager().DestroyComponent<T>(comp.Core);
+            _accessComponentManager().DestroyComponent(comp.Core);
         }
         
         /// <summary>
