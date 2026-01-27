@@ -374,20 +374,22 @@ namespace TinyECS.Managers
             {
                 // Move the last component to the position of the component being removed
                 ref var swapGs = ref m_components[swap];
+                var delCore = posGs.RefCore;
 
                 (posGs.Entity, swapGs.Entity) = (swapGs.Entity, posGs.Entity);
                 (posGs.Version, swapGs.Version) = (swapGs.Version, posGs.Version);
-                (posGs.RefCore, swapGs.RefCore) = (swapGs.RefCore, posGs.RefCore);
+                posGs.RefCore = swapGs.RefCore;
                 
                 posGs.RefCore.Relocate(RefLocator, pos, posGs.Version);
-                swapGs.RefCore.Invalidate();
-
+                delCore.Invalidate();
+                swapGs.Entity = 0;
+                swapGs.RefCore = null;
             }
             else
             {
                 // This is the last component, just invalidate it
+                posGs.RefCore.Invalidate();
                 posGs.Entity = 0;
-                posGs.RefCore.Relocate(null, -1, 0);
                 posGs.RefCore = null; // Do not refer it to avoid memory leak.
             }
 
