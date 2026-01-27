@@ -186,11 +186,11 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             
             // Act
-            var componentRef = entity.CreateComponent(typeof(PositionComponent));
+            var componentRef = entity.CreateComponent<PositionComponent>();
             
             // Assert
             Assert.IsNotNull(componentRef);
-            Assert.AreEqual(typeof(PositionComponent), componentRef.RuntimeType);
+            Assert.AreEqual(typeof(PositionComponent), componentRef.RW.GetType());
         }
         
         [Test]
@@ -198,7 +198,7 @@ namespace TinyECS.Test
         {
             // Arrange
             var entity = _world.CreateEntity();
-            var componentRef = entity.CreateComponent(typeof(PositionComponent));
+            var componentRef = entity.CreateComponent<PositionComponent>();
             
             // Act
             entity.DestroyComponent(componentRef);
@@ -207,6 +207,117 @@ namespace TinyECS.Test
             Assert.IsFalse(entity.HasComponent<PositionComponent>());
         }
         
+        [Test]
+        public void Entity_DestroyComponentByType()
+        {
+            // Arrange
+            var entity = _world.CreateEntity();
+            entity.CreateComponent<PositionComponent>();
+
+            // Assert that component exists
+            Assert.IsTrue(entity.HasComponent<PositionComponent>());
+
+            // Act
+            entity.DestroyComponent<PositionComponent>();
+
+            // Assert that component no longer exists
+            Assert.IsFalse(entity.HasComponent<PositionComponent>());
+        }
+        
+        [Test]
+        public void Entity_DestroyMultipleComponentsOfType()
+        {
+            // Arrange
+            var entity = _world.CreateEntity();
+            entity.CreateComponent<PositionComponent>();
+            entity.CreateComponent<VelocityComponent>();
+            
+            // Assert components exist
+            Assert.IsTrue(entity.HasComponent<PositionComponent>());
+            Assert.IsTrue(entity.HasComponent<VelocityComponent>());
+            
+            // Act
+            entity.DestroyComponent<PositionComponent>();
+            
+            // Assert only PositionComponent was removed
+            Assert.IsFalse(entity.HasComponent<PositionComponent>());
+            Assert.IsTrue(entity.HasComponent<VelocityComponent>());
+        }
+        
+        [Test]
+        public void Entity_DestroyComponentByUntypedRef()
+        {
+            // Arrange
+            var entity = _world.CreateEntity();
+            var typedRef = entity.CreateComponent<PositionComponent>();
+            var untypedRef = typedRef.Expand(); // Convert to untyped reference
+            
+            // Assert component exists
+            Assert.IsTrue(entity.HasComponent<PositionComponent>());
+            
+            // Act
+            entity.DestroyComponent(untypedRef);
+            
+            // Assert component no longer exists
+            Assert.IsFalse(entity.HasComponent<PositionComponent>());
+        }
+        
+        [Test]
+        public void Entity_DestroyForeignComponent_ThrowsException()
+        {
+            // Arrange
+            var entity1 = _world.CreateEntity();
+            var entity2 = _world.CreateEntity();
+            var componentRef = entity1.CreateComponent<PositionComponent>();
+            
+            // Act & Assert - Should throw exception because component belongs to different entity
+            Assert.Throws<InvalidOperationException>(() => entity2.DestroyComponent(componentRef));
+        }
+        
+        [Test]
+        public void Entity_GetComponentAfterDestruction_ThrowsException()
+        {
+            // Arrange
+            var entity = _world.CreateEntity();
+            var positionRef = entity.CreateComponent<PositionComponent>();
+            positionRef.RW = new PositionComponent { X = 10, Y = 20 };
+            
+            // Verify component exists and is accessible
+            var retrievedRef = entity.GetComponent<PositionComponent>();
+            Assert.AreEqual(10, retrievedRef.RW.X);
+            
+            // Act - Destroy the component
+            entity.DestroyComponent(positionRef);
+            
+            // Assert - Getting the component should now fail
+            Assert.IsFalse(entity.GetComponent<PositionComponent>().NotNull);
+        }
+        
+        [Test]
+        public void Entity_CreateAndDestroySameComponentMultipleTimes()
+        {
+            // Arrange
+            var entity = _world.CreateEntity();
+            
+            // Act & Assert - First cycle
+            var comp1 = entity.CreateComponent<PositionComponent>();
+            comp1.RW = new PositionComponent { X = 10, Y = 20 };
+            Assert.IsTrue(entity.HasComponent<PositionComponent>());
+            Assert.AreEqual(10, entity.GetComponent<PositionComponent>().RW.X);
+            
+            entity.DestroyComponent(comp1);
+            Assert.IsFalse(entity.HasComponent<PositionComponent>());
+            
+            // Second cycle
+            var comp2 = entity.CreateComponent<PositionComponent>();
+            comp2.RW = new PositionComponent { X = 30, Y = 40 };
+            Assert.IsTrue(entity.HasComponent<PositionComponent>());
+            Assert.AreEqual(30, entity.GetComponent<PositionComponent>().RW.X);
+            
+            entity.DestroyComponent(comp2);
+            Assert.IsFalse(entity.HasComponent<PositionComponent>());
+        }
+
         // Test components
         private struct PositionComponent : IComponent<PositionComponent>
         {
