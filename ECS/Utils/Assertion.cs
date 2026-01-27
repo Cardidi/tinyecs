@@ -113,5 +113,33 @@ namespace TinyECS.Utils
         {
             IsTrue(!typeof(TParent).IsAssignableFrom(children), message, memberName);
         }
+        
+        /// <summary>
+        /// Asserts that two values are equal.
+        /// </summary>
+        /// <typeparam name="T">The type of the values to compare</typeparam>
+        /// <param name="expected">The expected value</param>
+        /// <param name="actual">The actual value</param>
+        /// <param name="message">Optional error message</param>
+        /// <param name="memberName">The name of the calling member (automatically populated)</param>
+        /// <exception cref="InvalidOperationException">Thrown when the values are not equal</exception>
+        public static void AreEqual<T>(T expected, T actual, string message = null, [CallerMemberName] string memberName = null)
+        {
+            IsTrue(expected.Equals(actual), message, memberName);
+        }
+        
+        /// <summary>
+        /// Asserts that two values are not equal.
+        /// </summary>
+        /// <typeparam name="T">The type of the values to compare</typeparam>
+        /// <param name="expected">The expected value</param>
+        /// <param name="actual">The actual value</param>
+        /// <param name="message">Optional error message</param>
+        /// <param name="memberName">The name of the calling member (automatically populated)</param>
+        /// <exception cref="InvalidOperationException">Thrown when the values are equal</exception>
+        public static void AreNotEqual<T>(T expected, T actual, string message = null, [CallerMemberName] string memberName = null)
+        {
+            IsTrue(!expected.Equals(actual), message, memberName);
+        }
     }
 }

@@ -111,7 +111,8 @@ namespace TinyECS
         /// <param name="comp">Reference to the component to destroy</param>
         public void DestroyComponent<T>(ComponentRef<T> comp) where T : struct, IComponent<T>
         {
-            _accessComponentManager().DestroyComponent<T>(comp.Core);
+            Assertion.ArgumentNotNull(comp.NotNull ? this : null, "Component is null.");
+            Assertion.AreEqual(comp.EntityId, m_entityId, "Component does not belong to this entity.");
             _accessComponentManager().DestroyComponent(comp.Core);
         }
         
@@ -121,7 +122,20 @@ namespace TinyECS
         /// <param name="comp">Typeless reference to the component to destroy</param>
         public void DestroyComponent(ComponentRef comp)
         {
+            Assertion.ArgumentNotNull(comp.NotNull ? this : null, "Component is null.");
+            Assertion.AreEqual(comp.EntityId, m_entityId, "Component does not belong to this entity.");
             _accessComponentManager().DestroyComponent(comp.Core);
+        }
+
+        /// <summary>
+        /// Destroys a component of type T attached to this entity.
+        /// </summary>
+        /// <typeparam name="T">Component type to destroy, must be a struct implementing IComponent&lt;T&gt;</typeparam>
+        public void DestroyComponent<T>() where T : struct, IComponent<T>
+        {
+            var component = _accessGraph().GetComponent<T>();
+            Assertion.IsTrue(component.NotNull, "Entity does not have a component of type T.");
+            _accessComponentManager().DestroyComponent(component.Core);
         }
         
         /// <summary>
