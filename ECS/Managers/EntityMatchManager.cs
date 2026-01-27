@@ -87,7 +87,7 @@ namespace TinyECS.Managers
                     var changed = 0;
 
                     // Apply clashing
-                    for (int i = 0; i < collected.Count - changed; i++)
+                    for (int i = 0; i < collected.Count - changed && changed < changedClash.Count; i++)
                     {
                         var id = collected[i];
                         if (!changedClash.Contains(id)) continue;
@@ -95,15 +95,20 @@ namespace TinyECS.Managers
                         changed += 1;
                         (collected[i], collected[^changed]) = (collected[^changed], collected[i]);
                     }
+
+                    newLength -= changed;
                 }
 
                 // Update back buffer to ensure alignment with front buffer
                 if (processAdd && changedMatch.Count > 0)
                 {
+                    var startAt = newLength;
                     newLength += changedMatch.Count;
+                    
                     for (var i = 0; i < changedMatch.Count; i++)
                     {
-                        if (i < collected.Count) collected[i] = changedMatch[i];
+                        var finPos = startAt + i;
+                        if (finPos < collected.Count) collected[finPos] = changedMatch[i];
                         else collected.Add(changedMatch[i]);
                     }
                 }
@@ -111,7 +116,7 @@ namespace TinyECS.Managers
                 // Shrink array if needed
                 if (newLength < collected.Count)
                 {
-                    collected.RemoveRange(newLength, newLength - collected.Count);
+                    collected.RemoveRange(newLength, collected.Count - newLength);
                 }
             }
 
@@ -224,7 +229,7 @@ namespace TinyECS.Managers
             // If lazy removal, it will not represent in collectBuffer.
             var alreadyCollected = !init &&
                 (collectBuffer.Contains(entityId) || (dontAdd && matchBuffer.Contains(entityId))) &&
-                (!dontRemove || clashBuffer.Contains(entityId));
+                !(dontRemove && clashBuffer.Contains(entityId));
             
             var isMatched = !entityGraph.WishDestroy && matcher.ComponentFilter(entityGraph.RwComponents);
             
@@ -234,12 +239,14 @@ namespace TinyECS.Managers
             if (isMatched)
             {
                 if (!dontAdd) collectBuffer.Add(entityId);
-                if (!clashBuffer.Remove(entityId)) matchBuffer.Add(entityId);
+                clashBuffer.Remove(entityId);
+                matchBuffer.Add(entityId);
             }
             else
             {
                 if (!dontRemove) collectBuffer.Remove(entityId);
-                if (!matchBuffer.Remove(entityId)) clashBuffer.Add(entityId);
+                matchBuffer.Remove(entityId);
+                clashBuffer.Add(entityId);
             }
         }
 
