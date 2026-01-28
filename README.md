@@ -32,7 +32,7 @@ var world = new World();
 world.Startup(); // Initialize the world
 ```
 
-Before call `Startup()`, you should NOT do any following operations:
+Before call `Startup()`, you should **NOT** do any following operations:
 
 - Create entities
 - Add components to entities
@@ -40,10 +40,12 @@ Before call `Startup()`, you should NOT do any following operations:
 
 But you can do those operations before World call `Startup()`:
 
-- Configure Injector
+- Configure Injector by `World.Injector`
 - Inherit `World` class to add custom logic like additional ECS managers or do something while world is build, start, tick and shutdown.
 
 Aware that the world is not thread-safe. You should only access the world from the main thread.
+
+When this world is no longer used, ensure that call `World.Shutdown()` to terminate this world and release all resources.
 
 ### 2. Defining Components
 Components are simple data structures that implement the `IComponent<T>` interface. They hold data but don't contain logic.
@@ -88,12 +90,27 @@ public struct LifecycleComponent : IComponent<LifecycleComponent>
 ```
 
 ### 3. Creating Entities
-Entities are unique identifiers that group components together. You can add a mask to an entity to filter which systems it should be processed by.
+
+Entities serve as unique identifiers that bundle components together. While the underlying representation of an entity is a `ulong` value, it is recommended to use the `Entity` struct for better functionality and type safety. Use `World.GetEntity()` to convert a raw `ulong` identifier into a fully-featured `Entity` struct.
 
 ```csharp
 // Create an entity
 var entity = world.CreateEntity();
-var entityWithMask = world.CreateEntity(1 << 1);
+
+// Get a fully functional entity via World.GetEntity(ulong)
+var anotherEntity = world.GetEntity(entityId);
+```
+
+You can also add a mask to an entity to create types of entity.
+
+```csharp
+enum EntityType {
+    Actor = 1 << 1,
+    Terrian = 1 << 2
+}
+
+// Create an entity with mask
+var entityWithMask = world.CreateEntity((ulong) EntityType.Actor);
 ```
 
 ### 4. Adding Components to Entities
@@ -101,14 +118,16 @@ Components can be added to entities to give them properties and data.
 
 ```csharp
 // Add components to an entity
-var positionRef = entity.CreateComponent<PositionComponent>();
-positionRef.RW = new PositionComponent { X = 10, Y = 20 };
-
 var velocityRef = entity.CreateComponent<VelocityComponent>();
-velocityRef.RW = new VelocityComponent { X = 1, Y = 1 };
+velocityRef.RW.X = 1;
+velocityRef.RW.Y = 1;
 
 // Alternative way to set component data
 entity.CreateComponent<HealthComponent>().RW.Value = 100;
+
+// Not recommonded due to ignorant on component's `OnCreate`.
+var positionRef = entity.CreateComponent<PositionComponent>();
+positionRef.RW = new PositionComponent { X = 10, Y = 20 };
 ```
 
 ### 5. Accessing Components
@@ -140,13 +159,11 @@ entity.DestroyComponent<HealthComponent>();
 ```
 
 ### 7. Defining Systems
-Systems contain the logic that operates on entities with specific component combinations.
+Systems contain the logic that operates on entities with specific component combinations. If you want a system to access world, managers or anything can be get from DI container, just put them on constructor.
 
-If you want a system to access world, managers or anything can be get from DI container, just put them on constructor.
+If you need to grouping system and wish those group can being ticked one by one, the best way is to add mask on system to filter which systems it should process. You can tick those system when you call `World.Tick(ulong mask)`.
 
-For reactive usecase, you can add a mask to a system to filter which systems it should process. In additional, create a collector to find relevant entities is also a good practice. For further details, please refer to EntityCollector.
-
-As you can see, when we trying to iterating over entity via Collector, we should call `Change()` before iterating and do **NOT** use foreach loop.
+Create a collector to find relevant entities is the default way to access entities in a system. As you can see, use `World.CreateCollector()` to request collector when this system created and we can get those entities via `IEntityCollector.Collected`. When we trying to iterating over entity via Collector, call `Change()` before iterating entities to update collector.
 
 ```csharp
 public class MovementSystem : ISystem
@@ -154,7 +171,7 @@ public class MovementSystem : ISystem
     private World m_world;
     private IEntityCollector m_movingEntities;
     
-    public ulong TickGroup => 1 << 1;
+    public ulong TickGroup => ulong.MaxValue;
     
     public MovementSystem(World world)
     {
@@ -175,7 +192,7 @@ public class MovementSystem : ISystem
         m_movingEntities.Change();
         for (var i = 0; i < m_movingEntities.Collected.Count; i++)
         {
-            var entity = new Entity(m_world, m_movingEntities.Collected[i]);
+            var entity m_world.GetEntity(m_movingEntities.Collected[i]);
             
             var position = entity.GetComponent<PositionComponent>();
             var velocity = entity.GetComponent<VelocityComponent>();
@@ -194,8 +211,10 @@ public class MovementSystem : ISystem
 }
 ```
 
+For further details, please refer to EntityCollector. 
+
 ### 8. Managing Systems
-Register and manage systems within the world. You should better not register a system between `BeginTick` and `EndTick`. If you do that so, system will add properly, but modification will defer until next tick.
+Register and manage systems within the world. The execution order of system is matched with the order you register system (First In First Tick). You should not changing system registration between `World.BeginTick()` and `World.EndTick()`. If you do that so, system will be added, but world modification will defer until next `World.BeginTick()`.
 
 ```csharp
 // Create a world instance
@@ -225,17 +244,26 @@ Matchers allow you to filter entities based on their component composition.
 var positionOnlyMatcher = EntityMatcher.With.OfAll<PositionComponent>();
 
 // Match entities that have AT LEAST ONE of the specified components
-var positionOrVelocityMatcher = EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>();
+var positionOrVelocityMatcher = EntityMatcher.With
+    .OfAny<PositionComponent>()
+    .OfAny<VelocityComponent>();
 
 // Match entities that have specific components BUT NOT others
-var positionWithoutHealthMatcher = EntityMatcher.With.OfAll<PositionComponent>().OfNone<HealthComponent>();
+var positionWithoutHealthMatcher = EntityMatcher.With
+    .OfAll<PositionComponent>()
+    .OfNone<HealthComponent>();
 
 // Complex matcher - entities with Position AND Velocity but WITHOUT Health
-var complexMatcher = EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>().OfNone<HealthComponent>();
+var complexMatcher = EntityMatcher.With
+    .OfAll<PositionComponent>()
+    .OfAll<VelocityComponent>()
+    .OfNone<HealthComponent>();
 
 // Match entities with specific mask
-var maskingMatcher = EntityMatcher.WithMask(1 << 1);
+var maskingMatcher = EntityMatcher.WithMask((ulong) EntityType.Actor);
 ```
+
+If you create a matcher without any modification like entity mask or component rule, it will defaults to match any entity.
 
 ### 10. Entity Collector - Advanced Filtering and Change Tracking
 
@@ -253,7 +281,7 @@ var positionCollector = world.CreateCollector(
 positionCollector.Change(); // Call Change() to apply any pending changes
 for (int i = 0; i < positionCollector.Collected.Count; i++)
 {
-    var entity = new Entity(world, positionCollector.Collected[i]);
+    var entity = world.GetEntity(m_movingEntities.Collected[i]);
     // Process the entity
 }
 ```
@@ -329,14 +357,14 @@ foreach (var entityId in clashingEntities)
 // CORRECT - Use indexed for loop
 for (int i = 0; i < collector.Collected.Count; i++)
 {
-    var entity = new Entity(world, collector.Collected[i]);
+    var entity = world.GetEntity(m_movingEntities.Collected[i]);
     // Process entity
 }
 
 // INCORRECT - Avoid foreach loops
 // foreach (var entityId in collector.Collected) // This can cause issues
 // {
-//     var entity = new Entity(world, entityId);
+//     var entity = world.GetEntity(entityId);
 //     // Process entity
 // }
 ```
@@ -400,7 +428,7 @@ public class MovementSystem : ISystem
         m_movingEntities.Change(); // Apply pending changes
         for (var i = 0; i < m_movingEntities.Collected.Count; i++)
         {
-            var entity = new Entity(m_world, m_movingEntities.Collected[i]);
+            var entity = m_world.GetEntity(m_movingEntities.Collected[i]);
             
             var position = entity.GetComponent<PositionComponent>();
             var velocity = entity.GetComponent<VelocityComponent>();
