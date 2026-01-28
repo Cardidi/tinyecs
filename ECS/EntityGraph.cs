@@ -17,7 +17,7 @@ namespace TinyECS
         /// </summary>
         public static readonly Pool<EntityGraph> Pool = new(
             createFunc: () => new EntityGraph(),
-            getAction: x => x.Reset());
+            returnAction: x => x.Reset());
 
         /// <summary>
         /// Gets or sets the unique identifier for the entity this graph represents.
@@ -32,7 +32,6 @@ namespace TinyECS
         
         /// <summary>
         /// Gets or sets a value indicating whether this entity is marked for destruction.
-        /// When true, the entity will be destroyed at the end of the current frame.
         /// </summary>
         public bool WishDestroy { get; set; }
         
