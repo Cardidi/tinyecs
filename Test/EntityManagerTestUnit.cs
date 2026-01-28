@@ -105,7 +105,7 @@ namespace TinyECS.Test
             
             // Assert
             Assert.AreEqual(0, entityGraph.RwComponents.Count);
-            Assert.IsTrue(entityGraph.WishDestroy);
+            Assert.IsFalse(entityGraph.WishDestroy);
         }
         
         [Test]

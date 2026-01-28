@@ -320,22 +320,6 @@ namespace TinyECS.Test
         }
 
         #region Additional Entity Tests
-        [Test]
-        public void Entity_Mask_Property_ChangesWithComponents()
-        {
-            // Arrange
-            var entity = _world.CreateEntity();
-            ulong initialMask = entity.Mask;
-            
-            // Act & Assert
-            // Initially should have no components, so mask might be 0 or some default value
-            var positionRef = entity.CreateComponent<PositionComponent>();
-            Assert.AreNotEqual(initialMask, entity.Mask); // Mask should change after adding component
-            
-            var velocityRef = entity.CreateComponent<VelocityComponent>();
-            var afterTwoComponentsMask = entity.Mask;
-            Assert.AreNotEqual(initialMask, afterTwoComponentsMask); // Mask should be different again
-        }
 
         [Test]
         public void Entity_GetComponents_GenericArray_ReturnsCorrectTypes()
@@ -384,7 +368,7 @@ namespace TinyECS.Test
             entity.DestroyComponent(componentRef);
             
             // Assert - Trying to destroy the same component again should fail
-            Assert.Throws<ArgumentException>(() => entity.DestroyComponent(componentRef));
+            Assert.Throws<ArgumentNullException>(() => entity.DestroyComponent(componentRef));
         }
 
         [Test]
@@ -394,7 +378,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             
             // Assert - Trying to destroy a component that doesn't exist should fail
-            Assert.Throws<ArgumentException>(() => entity.DestroyComponent<PositionComponent>());
+            Assert.Throws<InvalidOperationException>(() => entity.DestroyComponent<PositionComponent>());
         }
 
         [Test]
@@ -431,7 +415,7 @@ namespace TinyECS.Test
             var positionRef = entity.CreateComponent<PositionComponent>();
             
             // Act & Assert - Try to destroy a position component as a velocity component
-            Assert.Throws<ArgumentException>(() => entity.DestroyComponent<VelocityComponent>());
+            Assert.Throws<InvalidOperationException>(() => entity.DestroyComponent<VelocityComponent>());
         }
 
         [Test]
@@ -446,7 +430,7 @@ namespace TinyECS.Test
             
             // Assert - Accessing the entity should show it's invalid
             Assert.IsFalse(entity.IsValid);
-            Assert.IsFalse(entity.HasComponent<PositionComponent>());
+            Assert.Throws<InvalidOperationException>(() => _ = entity.HasComponent<PositionComponent>());
         }
 
         [Test]

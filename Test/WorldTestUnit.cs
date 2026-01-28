@@ -285,15 +285,14 @@ namespace TinyECS.Test
         [Test]
         public void World_ManagerLifecycle_MethodsAreCalledCorrectly()
         {
-            // Arrange
-            var world = new World();
-            var testManager = new TestWorldManager();
             
             // Since World registers managers internally, we'll test with a custom world
-            var customWorld = new TestWorldWithCustomManager(testManager);
+            var customWorld = new TestWorldWithCustomManager();
             
             // Act - Startup should trigger OnManagerCreated and OnWorldStarted
             customWorld.Startup();
+
+            var testManager = customWorld.GetManager<TestWorldManager>();
             
             // Assert
             Assert.IsTrue(testManager.OnManagerCreatedCalled);
@@ -513,12 +512,6 @@ namespace TinyECS.Test
         // Custom world to test manager lifecycle
         private class TestWorldWithCustomManager : MinimalWorld
         {
-            private TestWorldManager m_testManager;
-            
-            public TestWorldWithCustomManager(TestWorldManager testManager)
-            {
-                m_testManager = testManager;
-            }
             
             protected override void OnRegisterManager(IManagerRegister register)
             {

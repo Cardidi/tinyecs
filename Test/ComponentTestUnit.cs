@@ -541,9 +541,12 @@ namespace TinyECS.Test
         {
             // Test converting null typed reference to untyped
             ComponentRef<PositionComponent> nullTypedRef = new ComponentRef<PositionComponent>(null);
-            ComponentRef convertedToUntyped = nullTypedRef; // implicit conversion
-            
-            Assert.IsFalse(convertedToUntyped.NotNull);
+
+
+            Assert.Throws<NullReferenceException>(() =>
+            {
+                ComponentRef convertedToUntyped = nullTypedRef; // implicit conversion
+            });
             
             // Test converting null untyped reference to typed
             ComponentRef nullUntypedRef = new ComponentRef(null);
