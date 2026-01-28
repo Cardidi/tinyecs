@@ -40,7 +40,7 @@ namespace TinyECS
         /// Gets the list of component references for this entity.
         /// This list contains the core references to all components attached to the entity.
         /// </summary>
-        internal List<IComponentRefCore> RwComponents { get; } = new();
+        public List<IComponentRefCore> RwComponents { get; } = new();
 
         /// <summary>
         /// Gets a reference to a component of type TComp attached to this entity.

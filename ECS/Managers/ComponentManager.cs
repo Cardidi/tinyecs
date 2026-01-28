@@ -64,7 +64,7 @@ namespace TinyECS.Managers
         /// <param name="refLocator">The locator for this component reference</param>
         /// <param name="offset">The memory offset of this component reference</param>
         /// <param name="version">The version of this component reference</param>
-        internal ComponentRefCore(IComponentRefLocator refLocator, int offset, uint version)
+        public ComponentRefCore(IComponentRefLocator refLocator, int offset, uint version)
         {
             m_refLocator = refLocator;
             m_offset = offset;
