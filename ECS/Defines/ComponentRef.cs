@@ -147,7 +147,7 @@ namespace TinyECS.Defines
         /// <returns>A typed component reference of type ComponentRef&lt;T&gt;</returns>
         /// <exception cref="InvalidCastException">Thrown when the component type doesn't match T</exception>
         /// <exception cref="NullReferenceException">Thrown when the component reference is invalid</exception>
-        public ComponentRef<T> Shrink<T>(bool noSafeCheck = false) where T : struct, IComponent<T>
+        public ComponentRef<T> Typed<T>(bool noSafeCheck = false) where T : struct, IComponent<T>
         {
             if (noSafeCheck || Core?.RefLocator != null && Core.RefLocator.NotNull(Core.Version, Core.Offset))
             {
@@ -159,10 +159,10 @@ namespace TinyECS.Defines
         }
         
         /// <summary>
-        /// Internal constructor used by the ECS framework to create a component reference.
+        /// Constructor used by the ECS framework to create a component reference.
         /// </summary>
         /// <param name="core">Core reference object containing locator, offset, and version</param>
-        internal ComponentRef(IComponentRefCore core)
+        public ComponentRef(IComponentRefCore core)
         {
             Core = core;
         }
@@ -174,7 +174,7 @@ namespace TinyECS.Defines
         /// <returns>True if the references are equal, false otherwise</returns>
         public bool Equals(ComponentRef other)
         {
-            return Equals(Core, other.Core);
+            return Core == other.Core;  // Compare the core objects directly
         }
 
         /// <summary>
@@ -184,7 +184,7 @@ namespace TinyECS.Defines
         /// <returns>True if the object is a component reference and is equal, false otherwise</returns>
         public override bool Equals(object obj)
         {
-            if (obj == null) return !NotNull;
+            if (obj is null) return Core is null;  // Check if Core is null for null comparison
             return obj is ComponentRef other && Equals(other);
         }
 
@@ -287,7 +287,7 @@ namespace TinyECS.Defines
         /// </summary>
         /// <returns>A typeless component reference</returns>
         /// <exception cref="NullReferenceException">Thrown when the component reference is invalid</exception>
-        public ComponentRef Expand()
+        public ComponentRef Untyped()
         {
             if (Core?.RefLocator != null && Core.RefLocator.NotNull(Core.Version, Core.Offset))
                 return new ComponentRef(Core);
@@ -296,10 +296,10 @@ namespace TinyECS.Defines
         }
 
         /// <summary>
-        /// Internal constructor used by the ECS framework to create a typed component reference.
+        /// Constructor used by the ECS framework to create a typed component reference.
         /// </summary>
         /// <param name="core">Core reference object containing locator, offset, and version</param>
-        internal ComponentRef(IComponentRefCore core)
+        public ComponentRef(IComponentRefCore core)
         {
             Core = core;
         }
@@ -311,7 +311,7 @@ namespace TinyECS.Defines
         /// <returns>True if the references are equal, false otherwise</returns>
         public bool Equals(ComponentRef<T> other)
         {
-            return Equals(Core, other.Core);
+            return Core == other.Core;  // Compare the core objects directly
         }
 
         /// <summary>
@@ -321,7 +321,7 @@ namespace TinyECS.Defines
         /// <returns>True if the object is a typed component reference and is equal, false otherwise</returns>
         public override bool Equals(object obj)
         {
-            if (obj == null) return !NotNull;
+            if (obj is null) return Core is null;  // Check if Core is null for null comparison
             return obj is ComponentRef<T> other && Equals(other);
         }
 
@@ -363,7 +363,7 @@ namespace TinyECS.Defines
         /// <returns>A typeless component reference</returns>
         public static implicit operator ComponentRef(ComponentRef<T> obj)
         {
-            return obj.Expand();
+            return obj.Untyped();
         }
 
         /// <summary>
@@ -373,7 +373,7 @@ namespace TinyECS.Defines
         /// <returns>A typed component reference</returns>
         public static explicit operator ComponentRef<T>(ComponentRef obj)
         {
-            return obj.Shrink<T>();
+            return obj.Typed<T>();
         }
     }
 }
