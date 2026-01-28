@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TinyECS;
 using TinyECS.Defines;
@@ -297,6 +298,123 @@ namespace TinyECS.Test
             // Assert
             Assert.AreEqual(1, matchedEntities.Count); // Only entity3 should match
             Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity3.EntityId));
+        }
+        
+        [Test]
+        public void EntityMatcher_PropertyAccess_Getter()
+        {
+            // Test accessing the EntityMask property of a matcher
+            var matcher = EntityMatcher.WithMask(0b1010);
+            
+            // Assert
+            Assert.AreEqual(0b1010, matcher.EntityMask);
+        }
+        
+        [Test]
+        public void EntityMatcher_ChainFilters_CorrectlyMatches()
+        {
+            // Arrange
+            var entity1 = _world.CreateEntity();
+            var entity2 = _world.CreateEntity();
+            var entity3 = _world.CreateEntity();
+            var entity4 = _world.CreateEntity();
+            
+            entity1.CreateComponent<PositionComponent>();
+            entity2.CreateComponent<PositionComponent>();
+            entity2.CreateComponent<VelocityComponent>();
+            entity3.CreateComponent<PositionComponent>();
+            entity3.CreateComponent<HealthComponent>();
+            entity4.CreateComponent<PositionComponent>();
+            entity4.CreateComponent<VelocityComponent>();
+            entity4.CreateComponent<HealthComponent>();
+            
+            // Chain filters: Must have Position, At least one of Velocity or Health, But not both Velocity and Health
+            var matcher = EntityMatcher.With
+                .OfAll<PositionComponent>()
+                .OfAny<VelocityComponent>()
+                .OfAny<HealthComponent>()
+                .OfNone<VelocityComponent>()
+                .OfNone<HealthComponent>();
+            
+            // Act
+            var entityManager = _world.GetManager<EntityManager>();
+            var matchedEntities = new List<Entity>();
+            
+            foreach (var kvp in entityManager.EntityCaches)
+            {
+                var entity = new Entity(_world, kvp.Key);
+                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
+                {
+                    matchedEntities.Add(entity);
+                }
+            }
+            
+            // Assert - Only entities with Position AND (Velocity OR Health) BUT NOT both should match
+            // Since OfNone excludes entities with either component, no entities should match
+            Assert.AreEqual(0, matchedEntities.Count);
+        }
+        
+        [Test]
+        public void EntityMatcher_WithProperty_Access()
+        {
+            // Test that the static With property creates a matcher with full mask
+            var matcher = EntityMatcher.With;
+            
+            // Assert
+            Assert.AreEqual(ulong.MaxValue, matcher.EntityMask);
+        }
+        
+        [Test]
+        public void EntityMatcher_MixedFilters_CombinedLogic()
+        {
+            // Arrange
+            var entity1 = _world.CreateEntity();
+            var entity2 = _world.CreateEntity();
+            var entity3 = _world.CreateEntity();
+            var entity4 = _world.CreateEntity();
+            
+            entity1.CreateComponent<PositionComponent>();
+            entity2.CreateComponent<PositionComponent>();
+            entity2.CreateComponent<VelocityComponent>();
+            entity3.CreateComponent<PositionComponent>();
+            entity3.CreateComponent<HealthComponent>();
+            entity4.CreateComponent<PositionComponent>();
+            entity4.CreateComponent<VelocityComponent>();
+            entity4.CreateComponent<HealthComponent>();
+            
+            // Complex matcher: Must have Position AND Velocity, but NOT Health
+            var matcher = EntityMatcher.With
+                .OfAll<PositionComponent>()
+                .OfAll<VelocityComponent>()
+                .OfNone<HealthComponent>();
+            
+            // Act
+            var entityManager = _world.GetManager<EntityManager>();
+            var matchedEntities = new List<Entity>();
+            
+            foreach (var kvp in entityManager.EntityCaches)
+            {
+                var entity = new Entity(_world, kvp.Key);
+                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
+                {
+                    matchedEntities.Add(entity);
+                }
+            }
+            
+            // Assert - Only entity2 should match (has Position and Velocity but not Health)
+            Assert.AreEqual(1, matchedEntities.Count);
+            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity2.EntityId));
+        }
+        
+        [Test]
+        public void EntityMatcher_WithMask_CreatesCorrectMatcher()
+        {
+            // Test that WithMask creates a matcher with the specified mask
+            var expectedMask = 0b1100UL;
+            var matcher = EntityMatcher.WithMask(expectedMask);
+            
+            // Assert
+            Assert.AreEqual(expectedMask, matcher.EntityMask);
         }
         
         // Test components

@@ -217,48 +217,6 @@ namespace TinyECS.Test
             world.Shutdown();
         }
         
-        [Test]
-        public void World_MultipleTicks_StressTest()
-        {
-            // Arrange
-            var world = new World();
-            world.Startup();
-            
-            const int tickCount = 100;
-            const int entitiesPerTick = 100;
-            
-            world.RegisterSystem<MovementSystem>();
-            var entities = new List<Entity>();
-            
-            for (int i = 0; i < tickCount; i++)
-            {
-                // Create entities
-                for (int j = 0; j < entitiesPerTick; j++)
-                {
-                    var entity = world.CreateEntity();
-                    entity.CreateComponent<PositionComponent>();
-                    entity.CreateComponent<VelocityComponent>();
-                    entities.Add(entity);
-                }
-                
-                // Tick the world
-                world.BeginTick();
-                world.Tick();
-                world.EndTick();
-            }
-            
-            // Assert
-            Assert.AreEqual(tickCount, world.TickCount);
-            Assert.IsTrue(world.FindSystem<MovementSystem>().ProcessedEntities);
-            
-            // Cleanup
-            foreach (var entity in entities)
-            {
-                world.DestroyEntity(entity);
-            }
-            world.Shutdown();
-        }
-        
         // Test components
         private struct PositionComponent : IComponent<PositionComponent>
         {

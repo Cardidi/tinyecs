@@ -296,6 +296,135 @@ namespace TinyECS.Test
             Assert.AreEqual(2, whileCount);
         }
         
+        [Test]
+        public void EntityCollector_PropertyAccess_Matcher()
+        {
+            // Test accessing the Matcher property of a collector
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.None);
+            
+            // Assert
+            Assert.IsNotNull(collector.Matcher);
+            Assert.AreEqual(matcher.EntityMask, collector.Matcher.EntityMask);
+        }
+        
+        [Test]
+        public void EntityCollector_FlagCombinations_LazyAddOnly()
+        {
+            // Test EntityCollectorFlag.LazyAdd flag behavior specifically
+            var entity1 = _world.CreateEntity();
+            var entity2 = _world.CreateEntity();
+            
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.LazyAdd);
+            
+            // Act - Add components after collector creation
+            entity1.CreateComponent<PositionComponent>();
+            entity2.CreateComponent<PositionComponent>();
+            
+            // Before Change() - should not be in collected due to LazyAdd
+            var beforeChangeCount = collector.Collected.Count;
+            
+            collector.Change();
+            
+            // After Change() - should be in collected
+            var afterChangeCount = collector.Collected.Count;
+            
+            // Assert
+            Assert.AreEqual(0, beforeChangeCount, "Should not collect entities before Change() with LazyAdd flag");
+            Assert.AreEqual(2, afterChangeCount, "Should collect entities after Change() with LazyAdd flag");
+        }
+        
+        [Test]
+        public void EntityCollector_FlagCombinations_LazyRemoveOnly()
+        {
+            // Test EntityCollectorFlag.LazyRemove flag behavior specifically
+            var entity1 = _world.CreateEntity();
+            var entity2 = _world.CreateEntity();
+            
+            entity1.CreateComponent<PositionComponent>();
+            entity2.CreateComponent<PositionComponent>();
+            
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.LazyRemove);
+            
+            // Act - Remove component
+            entity1.DestroyComponent(entity1.GetComponent<PositionComponent>());
+            
+            // Before Change() - should still be in collected due to LazyRemove
+            var beforeChangeCount = collector.Collected.Count;
+            
+            collector.Change();
+            
+            // After Change() - should be removed from collected
+            var afterChangeCount = collector.Collected.Count;
+            
+            // Assert
+            Assert.AreEqual(2, beforeChangeCount, "Should still contain entities before Change() with LazyRemove flag");
+            Assert.AreEqual(1, afterChangeCount, "Should remove entity after Change() with LazyRemove flag");
+        }
+        
+        [Test]
+        public void EntityCollector_BufferManagement_ClearAfterChange()
+        {
+            // Test that matching and clashing buffers are cleared after Change() is called
+            var entity1 = _world.CreateEntity();
+            var entity2 = _world.CreateEntity();
+            
+            entity1.CreateComponent<PositionComponent>();
+            
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.None);
+            
+            // Act - Make changes that affect matching/clashing
+            entity2.CreateComponent<PositionComponent>(); // Should be matching
+            entity1.DestroyComponent(entity1.GetComponent<PositionComponent>()); // Should be clashing
+            
+            collector.Change(); // Process the changes
+            
+            // Verify buffers have the expected entities
+            var matchingBeforeSecondChange = new List<ulong>(collector.Matching);
+            var clashingBeforeSecondChange = new List<ulong>(collector.Clashing);
+            
+            // Call Change() again without any actual changes
+            collector.Change();
+            
+            var matchingAfterSecondChange = new List<ulong>(collector.Matching);
+            var clashingAfterSecondChange = new List<ulong>(collector.Clashing);
+            
+            // Assert
+            Assert.AreEqual(1, matchingBeforeSecondChange.Count, "Should have 1 matching entity");
+            Assert.AreEqual(1, clashingBeforeSecondChange.Count, "Should have 1 clashing entity");
+            
+            Assert.AreEqual(0, matchingAfterSecondChange.Count, "Matching buffer should be cleared after Change()");
+            Assert.AreEqual(0, clashingAfterSecondChange.Count, "Clashing buffer should be cleared after Change()");
+        }
+        
+        [Test]
+        public void EntityCollector_ChangeMethod_ProcessesChanges()
+        {
+            // Test that Change() method properly processes changes
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Lazy);
+            
+            // Initially no entities should match
+            Assert.AreEqual(0, collector.Collected.Count);
+            
+            // Add component that makes entity match
+            entity.CreateComponent<PositionComponent>();
+            
+            // Still shouldn't be collected due to Lazy flag
+            Assert.AreEqual(0, collector.Collected.Count);
+            
+            // Process changes
+            collector.Change();
+            
+            // Now should be collected
+            Assert.AreEqual(1, collector.Collected.Count);
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+        
         // Test components (same as other test files)
         private struct PositionComponent : IComponent<PositionComponent>
         {
