@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using CoreECS.Defines;
 using CoreECS.Managers;
 using CoreECS.Utils;
@@ -184,6 +186,70 @@ namespace CoreECS
             {
                 DestroyEntity(entity.EntityId);
             }
+        }
+
+        /// <summary>
+        /// Collects the entity IDs of all entities that currently have an allocated <typeparamref name="TComp"/> instance
+        /// in the component store, and appends each ID to <paramref name="result"/>.
+        /// </summary>
+        /// <typeparam name="TComp">The component type to query; must be a struct implementing <see cref="IComponent{TComp}"/>.</typeparam>
+        /// <param name="result">The collection to append entity IDs to. Existing contents are not cleared.</param>
+        /// <returns>The number of allocated component entries for <typeparamref name="TComp"/> (equal to the number of IDs appended).</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or the component manager is not available.</exception>
+        public int GetEntitiesWithComponent<TComp>(ICollection<ulong> result) where TComp : struct, IComponent<TComp>
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (Component == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
+
+            var store = Component.GetComponentStore<TComp>();
+            var ds = store.ComponentGroups;
+            var count = store.Allocated;
+
+            for (var i = 0; i < count; i++)
+            {
+                result.Add(ds[i].Entity);
+            }
+            
+            return count;
+        }
+
+        /// <summary>
+        /// Collects <see cref="Entity"/> handles for all entities that currently have an allocated <typeparamref name="TComp"/>
+        /// instance in the component store, and appends each valid handle to <paramref name="result"/>.
+        /// Store entries that no longer resolve to a live entity graph are skipped.
+        /// </summary>
+        /// <typeparam name="TComp">The component type to query; must be a struct implementing <see cref="IComponent{TComp}"/>.</typeparam>
+        /// <param name="result">The collection to append <see cref="Entity"/> values to. Existing contents are not cleared.</param>
+        /// <returns>The number of <see cref="Entity"/> values appended to <paramref name="result"/>.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or the component manager is not available.</exception>
+        public int GetEntitiesWithComponent<TComp>(ICollection<Entity> result) where TComp : struct, IComponent<TComp>
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            
+            if (Component == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
+
+            var store = Component.GetComponentStore<TComp>();
+            var ds = store.ComponentGroups;
+            var count = store.Allocated;
+            var broken = 0;
+
+            for (var i = 0; i < count; i++)
+            {
+                var entityId = ds[i].Entity;                
+                var entityGraph = Entity.GetEntity(entityId);
+                if (entityGraph == null)
+                {
+                    broken += 1;
+                    continue;
+                }
+                
+                result.Add(new Entity(this, entityId, entityGraph.Generation, Entity, Component));
+            }
+            
+            return count - broken;
         }
 
         /// <summary>

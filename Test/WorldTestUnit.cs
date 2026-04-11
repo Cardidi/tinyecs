@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CoreECS;
 using CoreECS.Defines;
 using CoreECS.Managers;
@@ -282,6 +283,101 @@ namespace TinyECS.Test
             
             // Cleanup
             world.Shutdown();
+        }
+
+        [Test]
+        public void World_GetEntitiesWithComponent_Ulong_ReturnsIdsForEntitiesWithComponent()
+        {
+            var world = new World();
+            world.Startup();
+
+            var withA = world.CreateEntity();
+            var withB = world.CreateEntity();
+            _ = world.CreateEntity();
+
+            withA.CreateComponent<PositionComponent>();
+            withB.CreateComponent<PositionComponent>();
+
+            var ids = new List<ulong>();
+            var returned = world.GetEntitiesWithComponent<PositionComponent>(ids);
+
+            Assert.AreEqual(2, returned);
+            Assert.AreEqual(2, ids.Count);
+            CollectionAssert.AreEquivalent(new[] { withA.EntityId, withB.EntityId }, ids);
+
+            world.Shutdown();
+        }
+
+        [Test]
+        public void World_GetEntitiesWithComponent_Ulong_AppendsToExistingCollection()
+        {
+            var world = new World();
+            world.Startup();
+
+            var entity = world.CreateEntity();
+            entity.CreateComponent<PositionComponent>();
+
+            const ulong sentinel = 42;
+            var ids = new List<ulong> { sentinel };
+            var returned = world.GetEntitiesWithComponent<PositionComponent>(ids);
+
+            Assert.AreEqual(1, returned);
+            Assert.AreEqual(2, ids.Count);
+            Assert.AreEqual(sentinel, ids[0]);
+            Assert.AreEqual(entity.EntityId, ids[1]);
+
+            world.Shutdown();
+        }
+
+        [Test]
+        public void World_GetEntitiesWithComponent_Entity_ReturnsValidHandlesMatchingIds()
+        {
+            var world = new World();
+            world.Startup();
+
+            var e1 = world.CreateEntity();
+            var e2 = world.CreateEntity();
+            e1.CreateComponent<PositionComponent>();
+            e2.CreateComponent<PositionComponent>();
+
+            var ulongIds = new List<ulong>();
+            var ulongCount = world.GetEntitiesWithComponent<PositionComponent>(ulongIds);
+
+            var entities = new List<Entity>();
+            var entityCount = world.GetEntitiesWithComponent<PositionComponent>(entities);
+
+            Assert.AreEqual(ulongCount, entityCount);
+
+            var idsFromHandles = new List<ulong>();
+            foreach (var e in entities)
+                idsFromHandles.Add(e.EntityId);
+            CollectionAssert.AreEquivalent(ulongIds, idsFromHandles);
+
+            foreach (var e in entities)
+            {
+                Assert.IsTrue(e.IsValid);
+                Assert.AreSame(world, e.World);
+            }
+
+            world.Shutdown();
+        }
+
+        [Test]
+        public void World_GetEntitiesWithComponent_ThrowsWhenWorldNotReady_UlongCollection()
+        {
+            var world = new World();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                world.GetEntitiesWithComponent<PositionComponent>(new List<ulong>()));
+        }
+
+        [Test]
+        public void World_GetEntitiesWithComponent_ThrowsWhenWorldNotReady_EntityCollection()
+        {
+            var world = new World();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                world.GetEntitiesWithComponent<PositionComponent>(new List<Entity>()));
         }
         
         [Test]
