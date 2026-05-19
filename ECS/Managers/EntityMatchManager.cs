@@ -298,7 +298,7 @@ namespace CoreECS.Managers
                 TrackRevisionChanged = (flag & EntityCollectorFlag.ChangedOnRevision) > 0;
                 TrackMatchChanged = (flag & EntityCollectorFlag.ChangedOnMatching) > 0;
                 TrackClashChanged = (flag & EntityCollectorFlag.ChangedOnClashing) > 0;
-                HasChangeComponent = (flag & EntityCollectorFlag.ChangeComponent) > 0;
+                HasChangeComponent = (flag & EntityCollectorFlag.ChangeMustBeRelatedComponent) > 0;
                 m_manager = manager;
             }
 

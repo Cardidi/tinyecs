@@ -54,12 +54,12 @@ namespace CoreECS.Defines
         /// tracked in the Changed buffer. When not set, all component
         /// changes are tracked regardless of component type relevance.
         /// </summary>
-        ChangeComponent = 1 << 6,
+        ChangeMustBeRelatedComponent = 1 << 6,
 
         /// <summary>
         /// Default collector behavior.
         /// </summary>
-        Default = Lazy | LazyChange | ChangedOnRevision | ChangedOnMatching | ChangeComponent,
+        Default = Lazy | LazyChange | ChangedOnRevision | ChangedOnMatching | ChangeMustBeRelatedComponent,
 
     }
     

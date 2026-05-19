@@ -76,6 +76,38 @@ namespace TinyECS.Test
             Assert.IsFalse(collector.Matching.Contains(entity1.EntityId));
         }
         
+        
+        [Test]
+        public void EntityCollector_NonLazy_RealtimeMatchClash()
+        {
+            // Arrange
+            var entity1 = _world.CreateEntity();
+            
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.None);
+            
+            entity1.CreateComponent<PositionComponent>();
+            
+            // Assert
+            Assert.IsTrue(collector.Collected.Contains(entity1.EntityId));
+            Assert.IsFalse(collector.Clashing.Contains(entity1.EntityId));
+            Assert.IsTrue(collector.Matching.Contains(entity1.EntityId));
+            
+            entity1.DestroyComponent<PositionComponent>();
+            
+            // Assert
+            Assert.IsFalse(collector.Collected.Contains(entity1.EntityId));
+            Assert.IsTrue(collector.Clashing.Contains(entity1.EntityId));
+            Assert.IsFalse(collector.Matching.Contains(entity1.EntityId));
+            
+            collector.Flush();
+            
+            // Assert
+            Assert.IsFalse(collector.Collected.Contains(entity1.EntityId));
+            Assert.IsFalse(collector.Clashing.Contains(entity1.EntityId));
+            Assert.IsFalse(collector.Matching.Contains(entity1.EntityId));
+        }
+        
         [Test]
         public void EntityCollector_LazyAddBehavior_DelayedAddition()
         {
