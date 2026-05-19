@@ -468,7 +468,50 @@ namespace TinyECS.Test
             Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
         }
 
-        
+        [Test]
+        public void EntityMatcher_IsRelevantComponent_CoversAllAnyNone()
+        {
+            // IsRelevantComponent is the contract that EntityMatchManager's
+            // relevance gate relies on. It must return true for any type that
+            // appears in the all/any/none sets and false otherwise.
+            var matcher = EntityMatcher.With
+                .OfAll<PositionComponent>()
+                .OfAny<VelocityComponent>()
+                .OfNone<HealthComponent>();
+
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(PositionComponent)));
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(VelocityComponent)));
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(HealthComponent)));
+            Assert.IsFalse(matcher.IsRelevantComponent(typeof(UnrelatedTagComponent)));
+        }
+
+        [Test]
+        public void EntityMatcher_IsRelevantComponent_EmptyMatcher_TreatsAllAsRelevant()
+        {
+            // EntityMatcher.With without any chained OfAll/OfAny/OfNone matches
+            // every entity. The relevance gate must therefore consider every
+            // component type relevant, otherwise the ChangeComponent flag would
+            // silently drop all Changed entries for unconditional matchers.
+            var matcher = EntityMatcher.With;
+
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(PositionComponent)));
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(VelocityComponent)));
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(HealthComponent)));
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(UnrelatedTagComponent)));
+        }
+
+        [Test]
+        public void EntityMatcher_IsRelevantComponent_WithMaskNoConditions_TreatsAllAsRelevant()
+        {
+            // WithMask shares the same constructor as With and leaves the
+            // all/any/none sets empty, so it must also bypass the gate.
+            var matcher = EntityMatcher.WithMask(0b1010);
+
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(PositionComponent)));
+            Assert.IsTrue(matcher.IsRelevantComponent(typeof(UnrelatedTagComponent)));
+        }
+
+
         // Test components
         private struct PositionComponent : IComponent<PositionComponent>
         {
@@ -485,6 +528,10 @@ namespace TinyECS.Test
         private struct HealthComponent : IComponent<HealthComponent>
         {
             public float Value;
+        }
+
+        private struct UnrelatedTagComponent : IComponent<UnrelatedTagComponent>
+        {
         }
     }
 }

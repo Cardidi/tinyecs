@@ -691,7 +691,260 @@ namespace TinyECS.Test
             Assert.AreEqual(1, collector.Collected.Count);
             Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
         }
-        
+
+        [Test]
+        public void EntityCollector_ChangeComponent_AddIrrelevantComponent_DoesNotMarkChanged()
+        {
+            // With ChangeComponent enabled (Default), adding a component that is not
+            // in the matcher's all/any/none sets must not pollute Changed while the
+            // entity is still a member of the collector.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Default);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_ModifyIrrelevantComponent_DoesNotMarkChanged()
+        {
+            // Revising a component that is not part of the matcher must not
+            // surface the entity in Changed when ChangeComponent is enabled.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Default);
+
+            entity.CreateComponent<PositionComponent>();
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            ref var rw = ref entity.GetComponent<VelocityComponent>().RW;
+            rw.X = 42;
+            collector.Flush();
+
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_WithoutChangeComponent_AddIrrelevantComponent_MarksChanged()
+        {
+            // Without the ChangeComponent flag the relevance gate is bypassed,
+            // preserving the pre-fix behavior where any structural change of a
+            // collected entity surfaces it in Changed.
+            const EntityCollectorFlag flag =
+                EntityCollectorFlag.Lazy
+                | EntityCollectorFlag.LazyChange
+                | EntityCollectorFlag.ChangedOnMatching
+                | EntityCollectorFlag.ChangedOnRevision;
+
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, flag);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_WithoutChangeComponent_ModifyIrrelevantComponent_MarksChanged()
+        {
+            // Same contrast as above, but along the revision path.
+            const EntityCollectorFlag flag =
+                EntityCollectorFlag.Lazy
+                | EntityCollectorFlag.LazyChange
+                | EntityCollectorFlag.ChangedOnMatching
+                | EntityCollectorFlag.ChangedOnRevision;
+
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, flag);
+
+            entity.CreateComponent<PositionComponent>();
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            ref var rw = ref entity.GetComponent<VelocityComponent>().RW;
+            rw.X = 7;
+            collector.Flush();
+
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_ModifyRelevantComponent_StillMarksChanged()
+        {
+            // The relevance gate must not suppress changes on components that
+            // belong to the matcher's all/any/none sets.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Default);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            ref var rw = ref entity.GetComponent<PositionComponent>().RW;
+            rw.X = 12;
+            collector.Flush();
+
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_RemoveRelevantComponent_MarksClashingAndChanged()
+        {
+            // ChangedOnClashing combined with ChangeComponent: removing a relevant
+            // component flips membership, hitting the clash branch which sits
+            // outside the relevance gate. The entity must enter both Clashing
+            // and Changed.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(
+                matcher,
+                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+
+            entity.CreateComponent<PositionComponent>();
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.DestroyComponent<PositionComponent>();
+            collector.Flush();
+
+            Assert.IsFalse(collector.Collected.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Clashing.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_RemoveIrrelevantComponent_DoesNotClashOrChange()
+        {
+            // Removing an irrelevant component leaves membership intact, so the
+            // relevance gate must filter the entity out of Changed and the
+            // clash bookkeeping must remain untouched.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(
+                matcher,
+                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+
+            entity.CreateComponent<PositionComponent>();
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.DestroyComponent<VelocityComponent>();
+            collector.Flush();
+
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+            Assert.IsFalse(collector.Clashing.Contains(entity.EntityId));
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_WithoutChangeComponent_RemoveIrrelevantComponent_MarksChanged()
+        {
+            // Contrast for the clash configuration: without ChangeComponent the
+            // irrelevant removal still slips into Changed via the
+            // membership-unchanged branch, while never being treated as a clash.
+            const EntityCollectorFlag flag =
+                EntityCollectorFlag.Lazy
+                | EntityCollectorFlag.LazyChange
+                | EntityCollectorFlag.ChangedOnMatching
+                | EntityCollectorFlag.ChangedOnRevision
+                | EntityCollectorFlag.ChangedOnClashing;
+
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, flag);
+
+            entity.CreateComponent<PositionComponent>();
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.DestroyComponent<VelocityComponent>();
+            collector.Flush();
+
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+            Assert.IsFalse(collector.Clashing.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_EmptyMatcher_DoesNotDropChanges()
+        {
+            // Regression for the empty-matcher edge case: with Default flags
+            // (ChangeComponent enabled) and a matcher that has no
+            // all/any/none conditions, every structural and revision change
+            // on a collected entity must still surface in Changed. If the
+            // shortcut in IsRelevantComponent ever regresses, the relevance
+            // gate would silently swallow all these notifications.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With;
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Default);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            ref var rwPos = ref entity.GetComponent<PositionComponent>().RW;
+            rwPos.X = 7;
+            collector.Flush();
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.CreateComponent<VelocityComponent>();
+            collector.Flush();
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            ref var rwVel = ref entity.GetComponent<VelocityComponent>().RW;
+            rwVel.X = 11;
+            collector.Flush();
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+        }
+
         // Test components (same as other test files)
         private struct PositionComponent : IComponent<PositionComponent>
         {
