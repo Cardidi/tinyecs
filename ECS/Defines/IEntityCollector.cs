@@ -50,9 +50,16 @@ namespace CoreECS.Defines
         LazyChange = 1 << 5,
 
         /// <summary>
+        /// When set, only Match related component changes will be
+        /// tracked in the Changed buffer. When not set, all component
+        /// changes are tracked regardless of component type relevance.
+        /// </summary>
+        ChangeComponent = 1 << 6,
+
+        /// <summary>
         /// Default collector behavior.
         /// </summary>
-        Default = Lazy | LazyChange | ChangedOnRevision | ChangedOnMatching,
+        Default = Lazy | LazyChange | ChangedOnRevision | ChangedOnMatching | ChangeComponent,
 
     }
     

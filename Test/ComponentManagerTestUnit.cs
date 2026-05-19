@@ -161,10 +161,11 @@ namespace TinyECS.Test
             IComponentRefCore capturedCore = null;
             ulong capturedEntityId = 0;
             
-            _componentManager.OnComponentCreated.Add((core, entityId) => {
+            _componentManager.OnComponentCreated.Add((core, entityId, compType) => {
                 eventTriggered = true;
                 capturedCore = core;
                 capturedEntityId = entityId;
+                Assert.That(typeof(PositionComponent), Is.EqualTo(compType));
             });
             
             var entity = _world.CreateEntity();
@@ -186,10 +187,11 @@ namespace TinyECS.Test
             IComponentRefCore capturedCore = null;
             ulong capturedEntityId = 0;
             
-            _componentManager.OnComponentRemoved.Add((core, entityId) => {
+            _componentManager.OnComponentRemoved.Add((core, entityId, compType) => {
                 eventTriggered = true;
                 capturedCore = core;
                 capturedEntityId = entityId;
+                Assert.That(typeof(PositionComponent), Is.EqualTo(compType));
             });
             
             var entity = _world.CreateEntity();
@@ -336,10 +338,11 @@ namespace TinyECS.Test
             ulong capturedEntityId = 0;
             var destroyEventTriggered = false;
             
-            _componentManager.OnComponentRemoved.Add((core, entityId) => {
+            _componentManager.OnComponentRemoved.Add((core, entityId, compType) => {
                 destroyEventTriggered = true;
                 capturedCore = core;
                 capturedEntityId = entityId;
+                Assert.That(typeof(LifecycleComponent), Is.EqualTo(compType));
             });
             
             // Act - Create component

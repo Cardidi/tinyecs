@@ -11,21 +11,24 @@ namespace CoreECS.Managers
     /// </summary>
     /// <param name="component">The component reference core</param>
     /// <param name="entityId">The ID of the entity that owns the component</param>
-    public delegate void ComponentCreated(IComponentRefCore component, ulong entityId);
+    /// <param name="compType">The type of the component that was created</param>
+    public delegate void ComponentCreated(IComponentRefCore component, ulong entityId, Type compType);
 
     /// <summary>
     /// Delegate for component destruction events.
     /// </summary>
     /// <param name="component">The component reference core</param>
     /// <param name="entityId">The ID of the entity that owned the component</param>
-    public delegate void ComponentDestroyed(IComponentRefCore component, ulong entityId);
+    /// <param name="compType">The type of the component that was destroyed</param>
+    public delegate void ComponentDestroyed(IComponentRefCore component, ulong entityId, Type compType);
 
     /// <summary>
     /// Delegate for component revision change events.
     /// </summary>
     /// <param name="component">The component reference core</param>
     /// <param name="entityId">The ID of the entity that owns the component</param>
-    public delegate void ComponentChanged(IComponentRefCore component, ulong entityId);
+    /// <param name="compType">The type of the component that changed</param>
+    public delegate void ComponentChanged(IComponentRefCore component, ulong entityId, Type compType);
     
     /// <summary>
     /// Core implementation of IComponentRefCore that holds the locator, offset, and version
@@ -557,21 +560,21 @@ namespace CoreECS.Managers
         /// <summary>
         /// Emitter for component creation events.
         /// </summary>
-        private static readonly Emitter<ComponentCreated, IComponentRefCore, ulong> _addEmitter = 
-            (h, a, b) => h(a, b);
+        private static readonly Emitter<ComponentCreated, IComponentRefCore, ulong, Type> _addEmitter = 
+            (h, a, b, c) => h(a, b, c);
         
         
         /// <summary>
         /// Emitter for component destruction events.
         /// </summary>
-        private static readonly Emitter<ComponentDestroyed, IComponentRefCore, ulong> _rmEmitter = 
-            (h, a, b) => h(a, b);
+        private static readonly Emitter<ComponentDestroyed, IComponentRefCore, ulong, Type> _rmEmitter = 
+            (h, a, b, c) => h(a, b, c);
 
         /// <summary>
         /// Emitter for component revision change events.
         /// </summary>
-        private static readonly Emitter<ComponentChanged, IComponentRefCore, ulong> _changeEmitter =
-            (h, a, b) => h(a, b);
+        private static readonly Emitter<ComponentChanged, IComponentRefCore, ulong, Type> _changeEmitter =
+            (h, a, b, c) => h(a, b, c);
         
         /// <summary>
         /// Dictionary mapping component types to their stores.
@@ -660,7 +663,7 @@ namespace CoreECS.Managers
         /// <param name="entityId">Entity that owns the component</param>
         private void _onComponentChanged(IComponentRefCore core, ulong entityId)
         {
-            OnComponentChanged.Emit(core, entityId, _changeEmitter);
+            OnComponentChanged.Emit(core, entityId, core.RefLocator.GetT(), _changeEmitter);
         }
 
         /// <summary>
@@ -676,7 +679,7 @@ namespace CoreECS.Managers
             var allocComp = store.Fix(entityId);
             var core = store.RefLocator.GetRefCore(allocComp);
             
-            OnComponentCreated.Emit(core, entityId, _addEmitter);
+            OnComponentCreated.Emit(core, entityId, typeof(T), _addEmitter);
             return core;
         }
         
@@ -694,7 +697,7 @@ namespace CoreECS.Managers
             var allocComp = store.Fix(entityId, initialValue);
             var core = store.RefLocator.GetRefCore(allocComp);
             
-            OnComponentCreated.Emit(core, entityId, _addEmitter);
+            OnComponentCreated.Emit(core, entityId, typeof(T), _addEmitter);
             return core;
         }
 
@@ -710,8 +713,9 @@ namespace CoreECS.Managers
             var idx = core.Offset;
             var store = GetComponentStore(core.RefLocator.GetT());
             var entityId = store.RefLocator.GetEntityId(idx);
+            var compType = core.RefLocator.GetT();
             
-            if (store.Release(idx)) OnComponentRemoved.Emit(core, entityId, _rmEmitter);
+            if (store.Release(idx)) OnComponentRemoved.Emit(core, entityId, compType, _rmEmitter);
         }
         
         public void CleanupComponents()

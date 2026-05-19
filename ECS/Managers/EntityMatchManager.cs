@@ -130,6 +130,12 @@ namespace CoreECS.Managers
             public readonly bool TrackClashChanged;
 
             /// <summary>
+            /// Gets a value indicating whether only match-relevant component changes
+            /// should be tracked in the changed buffer.
+            /// </summary>
+            public readonly bool HasChangeComponent;
+
+            /// <summary>
             /// Summarizes previous changes and starts a new collecting phase.
             /// </summary>
             public void Flush()
@@ -292,6 +298,7 @@ namespace CoreECS.Managers
                 TrackRevisionChanged = (flag & EntityCollectorFlag.ChangedOnRevision) > 0;
                 TrackMatchChanged = (flag & EntityCollectorFlag.ChangedOnMatching) > 0;
                 TrackClashChanged = (flag & EntityCollectorFlag.ChangedOnClashing) > 0;
+                HasChangeComponent = (flag & EntityCollectorFlag.ChangeComponent) > 0;
                 m_manager = manager;
             }
 
@@ -413,31 +420,33 @@ namespace CoreECS.Managers
         /// Handles component addition events.
         /// </summary>
         /// <param name="entityGraph">The entity graph that changed</param>
-        private void _onComponentAdded(EntityGraph entityGraph)
+        private void _onComponentAdded(EntityGraph entityGraph, Type componentType)
         {
-            _onEntityChanged(entityGraph, true);
+            _onEntityChanged(entityGraph, componentType, true);
         }
 
         /// <summary>
         /// Handles component removal events.
         /// </summary>
         /// <param name="entityGraph">The entity graph that changed</param>
-        private void _onComponentRemoved(EntityGraph entityGraph)
+        /// <param name="componentType">The type of the component that was removed</param>
+        private void _onComponentRemoved(EntityGraph entityGraph, Type componentType)
         {
-            _onEntityChanged(entityGraph, false);
+            _onEntityChanged(entityGraph, componentType, false);
         }
 
         /// <summary>
         /// Handles component revision change events.
         /// </summary>
         /// <param name="entityGraph">The entity graph that changed</param>
-        private void _onComponentChanged(EntityGraph entityGraph)
+        /// <param name="componentType">The type of the component that changed</param>
+        private void _onComponentChanged(EntityGraph entityGraph, Type componentType)
         {
             if (m_revisionTrackingCollectorCount == 0) return;
 
             foreach (var collector in m_collectors)
             {
-                _changeCollector(collector, entityGraph, null, false);
+                _changeCollector(collector, entityGraph, null, false, componentType);
             }
         }
 
@@ -445,12 +454,13 @@ namespace CoreECS.Managers
         /// Handles entity changes by updating all collectors.
         /// </summary>
         /// <param name="entityGraph">The entity graph that changed</param>
+        /// <param name="componentType">The type of the component that changed</param>
         /// <param name="isAdd">True if components were added, false if removed</param>
-        private void _onEntityChanged(EntityGraph entityGraph, bool isAdd)
+        private void _onEntityChanged(EntityGraph entityGraph, Type componentType, bool isAdd)
         {
             foreach (var collector in m_collectors)
             {
-                _changeCollector(collector, entityGraph, isAdd, false);
+                _changeCollector(collector, entityGraph, isAdd, false, componentType);
             }
         }
 
@@ -461,7 +471,7 @@ namespace CoreECS.Managers
         /// <param name="entityGraph">The entity graph that changed</param>
         /// <param name="isAdd">True if components were added, false if removed, null if only revision changed</param>
         /// <param name="init">True if this is during initialization</param>
-        private void _changeCollector(Collector collector, EntityGraph entityGraph, bool? isAdd, bool init)
+        private void _changeCollector(Collector collector, EntityGraph entityGraph, bool? isAdd, bool init, Type componentType)
         {
             var matcher = collector.Matcher;
             // Quick-pass filter
@@ -483,7 +493,8 @@ namespace CoreECS.Managers
 
             if (!isAdd.HasValue)
             {
-                if (collector.TrackRevisionChanged && alreadyCollected && isMatched)
+                if (collector.TrackRevisionChanged && alreadyCollected && isMatched
+                    && RelevanceGate(collector, matcher, componentType))
                     collector.MarkChanged(entityId);
                 return;
             }
@@ -491,7 +502,9 @@ namespace CoreECS.Managers
             // Membership unchanged, but structure still changed while the entity stayed in the collector.
             if (!(isMatched ^ alreadyCollected))
             {
-                if (alreadyCollected && isMatched) collector.MarkChanged(entityId);
+                if (alreadyCollected && isMatched
+                    && RelevanceGate(collector, matcher, componentType))
+                    collector.MarkChanged(entityId);
                 return;
             }
 
@@ -513,6 +526,18 @@ namespace CoreECS.Managers
                 if (collector.TrackClashChanged)
                     collector.MarkChanged(entityId);
             }
+        }
+
+        /// <summary>
+        /// Determines whether a component type change should be tracked
+        /// based on the ChangeComponent flag and matcher relevance.
+        /// When null, or HasChangeComponent is false, always passes.
+        /// </summary>
+        private static bool RelevanceGate(Collector collector, IEntityMatcher matcher, Type componentType)
+        {
+            if (componentType == null) return true;
+            if (!collector.HasChangeComponent) return true;
+            return matcher.IsRelevantComponent(componentType);
         }
 
         /// <summary>
@@ -561,7 +586,7 @@ namespace CoreECS.Managers
             var entityManager = World.GetManager<EntityManager>();
             foreach (var ec in entityManager.EntityCaches.Values)
             {
-                _changeCollector(c, ec, false, true);
+                _changeCollector(c, ec, false, true, null);
             }
 
             return c;

@@ -9,19 +9,22 @@ namespace CoreECS.Managers
     /// Delegate for entity component acquisition events.
     /// </summary>
     /// <param name="entityGraph">The entity graph that acquired a component</param>
-    public delegate void EntityGetComponent(EntityGraph entityGraph);
+    /// <param name="componentType">The type of the component that was added</param>
+    public delegate void EntityGetComponent(EntityGraph entityGraph, Type componentType);
     
     /// <summary>
     /// Delegate for entity component loss events.
     /// </summary>
     /// <param name="entityGraph">The entity graph that lost a component</param>
-    public delegate void EntityLoseComponent(EntityGraph entityGraph);
+    /// <param name="componentType">The type of the component that was removed</param>
+    public delegate void EntityLoseComponent(EntityGraph entityGraph, Type componentType);
 
     /// <summary>
     /// Delegate for entity component revision change events.
     /// </summary>
     /// <param name="entityGraph">The entity graph whose component changed</param>
-    public delegate void EntityChangeComponent(EntityGraph entityGraph);
+    /// <param name="componentType">The type of the component that changed</param>
+    public delegate void EntityChangeComponent(EntityGraph entityGraph, Type componentType);
     
     /// <summary>
     /// Manages entities in the world.
@@ -132,7 +135,7 @@ namespace CoreECS.Managers
             {
                 graph.RwComponents.Clear();
                 graph.WishDestroy = true;
-                OnEntityLoseComp.Emit(in graph, static (h, c) => h(c));
+                OnEntityLoseComp.Emit(in graph, (Type)null, static (h, g, t) => h(g, t));
                 EntityGraph.Pool.Release(graph);
             }
         }
@@ -142,14 +145,14 @@ namespace CoreECS.Managers
         /// </summary>
         /// <param name="component">The component that was added</param>
         /// <param name="entityId">The ID of the entity that received the component</param>
-        private void _onComponentAdded(IComponentRefCore component, ulong entityId)
+        private void _onComponentAdded(IComponentRefCore component, ulong entityId, Type compType)
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;
             
             gs.RwComponents.Add(component);
             
-            OnEntityGotComp.Emit(in gs, static (h, c) => h(c));
+            OnEntityGotComp.Emit(in gs, compType, static (h, g, t) => h(g, t));
         }
         
         /// <summary>
@@ -157,13 +160,13 @@ namespace CoreECS.Managers
         /// </summary>
         /// <param name="component">The component that was removed</param>
         /// <param name="entityId">The ID of the entity that lost the component</param>
-        private void _onComponentRemoved(IComponentRefCore component, ulong entityId)
+        private void _onComponentRemoved(IComponentRefCore component, ulong entityId, Type compType)
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;
             gs.RwComponents.Remove(component);
             
-            OnEntityLoseComp.Emit(in gs, static (h, c) => h(c));
+            OnEntityLoseComp.Emit(in gs, compType, static (h, g, t) => h(g, t));
         }
 
         /// <summary>
@@ -171,14 +174,14 @@ namespace CoreECS.Managers
         /// </summary>
         /// <param name="component">The component that changed</param>
         /// <param name="entityId">The ID of the entity that owns the component</param>
-        private void _onComponentChanged(IComponentRefCore component, ulong entityId)
+        private void _onComponentChanged(IComponentRefCore component, ulong entityId, Type compType)
         {
             if (!OnEntityChangeComp.HasReceivers) return;
 
             var gs = GetEntity(entityId);
             if (gs == null) return;
 
-            OnEntityChangeComp.Emit(in gs, static (h, c) => h(c));
+            OnEntityChangeComp.Emit(in gs, compType, static (h, g, t) => h(g, t));
         }
 
         /// <summary>

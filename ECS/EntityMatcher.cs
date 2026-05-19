@@ -167,6 +167,17 @@ namespace CoreECS
         }
 
         /// <summary>
+        /// Determines whether the specified component type is relevant
+        /// to this matcher's criteria (all, any, or none sets).
+        /// </summary>
+        /// <param name="componentType">The component type to check</param>
+        /// <returns>True if the component appears in any matcher set</returns>
+        public bool IsRelevantComponent(Type componentType)
+        {
+            return m_all.Contains(componentType) || m_any.Contains(componentType) || m_none.Contains(componentType);
+        }
+
+        /// <summary>
         /// Gets the entity mask for this matcher.
         /// </summary>
         public ulong EntityMask => m_mask;

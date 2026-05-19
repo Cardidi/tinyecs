@@ -149,9 +149,10 @@ namespace TinyECS.Test
             var eventTriggered = false;
             EntityGraph capturedGraph = null;
             
-            _entityManager.OnEntityGotComp.Add((graph) => {
+            _entityManager.OnEntityGotComp.Add((graph, type) => {
                 eventTriggered = true;
                 capturedGraph = graph;
+                Assert.That(typeof(PositionComponent), Is.EqualTo(type));
             });
             
             // Simulate adding a component (this happens through the component manager)
@@ -159,7 +160,8 @@ namespace TinyECS.Test
             entityGraph.RwComponents.Add(mockComponent);
             
             // Manually trigger the event as would happen internally
-            _entityManager.OnEntityGotComp.Emit(in entityGraph, static (h, g) => h(g));
+            _entityManager.OnEntityGotComp.Emit(in entityGraph, typeof(PositionComponent), 
+                static (h, g, c) => h(g, c));
             
             // Assert
             Assert.IsTrue(eventTriggered);
@@ -178,16 +180,18 @@ namespace TinyECS.Test
             var eventTriggered = false;
             EntityGraph capturedGraph = null;
             
-            _entityManager.OnEntityLoseComp.Add((graph) => {
+            _entityManager.OnEntityLoseComp.Add((graph, type) => {
                 eventTriggered = true;
                 capturedGraph = graph;
+                Assert.That(typeof(PositionComponent), Is.EqualTo(type));
             });
             
             // Remove the component
             entityGraph.RwComponents.Remove(mockComponent);
             
             // Manually trigger the event as would happen internally
-            _entityManager.OnEntityLoseComp.Emit(in entityGraph, static (h, g) => h(g));
+            _entityManager.OnEntityLoseComp.Emit(in entityGraph, typeof(PositionComponent), 
+                static (h, g, c) => h(g, c));
             
             // Assert
             Assert.IsTrue(eventTriggered);
