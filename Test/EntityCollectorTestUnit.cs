@@ -945,6 +945,239 @@ namespace TinyECS.Test
             Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
         }
 
+        [Test]
+        public void EntityCollector_ChangeComponent_MixRelevantAndIrrelevant_BetweenFlushes_DedupsToRelevantOnly()
+        {
+            // Multiple events of mixed relevance accumulate between two
+            // flushes. The relevance gate must filter the irrelevant ones
+            // while letting the relevant revisions through, and the back
+            // buffer must collapse the multiple relevant revisions into a
+            // single Changed entry.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Default);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            ref var rwPosA = ref entity.GetComponent<PositionComponent>().RW;
+            rwPosA.X = 1;
+
+            entity.CreateComponent<VelocityComponent>();
+
+            ref var rwVel = ref entity.GetComponent<VelocityComponent>().RW;
+            rwVel.X = 2;
+
+            ref var rwPosB = ref entity.GetComponent<PositionComponent>().RW;
+            rwPosB.Y = 3;
+
+            collector.Flush();
+
+            Assert.AreEqual(1, collector.Changed.Count);
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_OnlyIrrelevant_BetweenFlushes_KeepsChangedEmpty()
+        {
+            // Only irrelevant events occur between two flushes. With
+            // ChangeComponent enabled every notification is dropped and
+            // Changed must remain empty, while the entity is still
+            // considered a member of the collector.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Default);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.CreateComponent<VelocityComponent>();
+
+            ref var rwVel1 = ref entity.GetComponent<VelocityComponent>().RW;
+            rwVel1.X = 1;
+
+            ref var rwVel2 = ref entity.GetComponent<VelocityComponent>().RW;
+            rwVel2.Y = 2;
+
+            collector.Flush();
+
+            Assert.AreEqual(0, collector.Changed.Count);
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_MultipleRelevantComponents_BetweenFlushes_DedupChanged()
+        {
+            // Two relevant signals on the same entity in the same phase:
+            // one revision branch (CompA mutation) and one membership
+            // flip branch (adding CompB which is in the OfNone set). Both
+            // call MarkChanged via different code paths and the back
+            // buffer must deduplicate them into a single Changed entry.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With
+                .OfAll<PositionComponent>()
+                .OfNone<VelocityComponent>();
+            var collector = _world.CreateCollector(
+                matcher,
+                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            ref var rwPos = ref entity.GetComponent<PositionComponent>().RW;
+            rwPos.X = 5;
+
+            entity.CreateComponent<VelocityComponent>();
+
+            collector.Flush();
+
+            Assert.AreEqual(1, collector.Changed.Count);
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+            Assert.IsTrue(collector.Clashing.Contains(entity.EntityId));
+            Assert.IsFalse(collector.Collected.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_NonLazyChange_AccumulatesChangedBetweenFlushes()
+        {
+            // Realtime mode (no LazyChange): consecutive revisions on the
+            // relevant component must be immediately visible in Changed,
+            // be deduplicated to a single entry, and then be cleared by
+            // the next Flush.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.ChangedOnRevision);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.AreEqual(0, collector.Changed.Count);
+
+            ref var rwFirst = ref entity.GetComponent<PositionComponent>().RW;
+            rwFirst.X = 1;
+            Assert.AreEqual(1, collector.Changed.Count);
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            ref var rwSecond = ref entity.GetComponent<PositionComponent>().RW;
+            rwSecond.X = 2;
+            Assert.AreEqual(1, collector.Changed.Count);
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            ref var rwThird = ref entity.GetComponent<PositionComponent>().RW;
+            rwThird.Y = 3;
+            Assert.AreEqual(1, collector.Changed.Count);
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+
+            collector.Flush();
+
+            Assert.AreEqual(0, collector.Changed.Count);
+        }
+
+        [Test]
+        public void EntityCollector_ChangeComponent_BounceMembership_BetweenFlushes_LeavesConsistentState()
+        {
+            // The same entity leaves and re-enters the collector in the
+            // same phase. The CHANGE_MATCHING / CHANGE_CLASHING back
+            // buffers must converge to "still a member" and Changed must
+            // hold a single deduplicated entry produced by the match and
+            // clash signals combined.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(
+                matcher,
+                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            entity.DestroyComponent<PositionComponent>();
+            entity.CreateComponent<PositionComponent>();
+
+            collector.Flush();
+
+            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
+            Assert.IsFalse(collector.Clashing.Contains(entity.EntityId));
+            Assert.IsFalse(collector.Matching.Contains(entity.EntityId));
+            Assert.AreEqual(1, collector.Changed.Count);
+            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
+        }
+
+        [Test]
+        public void EntityCollector_LazyChange_AlternatingModifyAndFlush_EachFlushExposesOneChange()
+        {
+            // ABABAB loop with LazyChange enabled: each modify enqueues
+            // E into the back buffer, and the following Flush swaps it
+            // into the front Changed buffer. Across many iterations
+            // Changed must always show exactly one entry (E from the
+            // immediately preceding phase). When the loop ends without
+            // a modify, Changed must drain to empty within one Flush.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.Default);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
+
+            for (var i = 0; i < 4; i++)
+            {
+                ref var rw = ref entity.GetComponent<PositionComponent>().RW;
+                rw.X = i;
+
+                collector.Flush();
+
+                Assert.AreEqual(1, collector.Changed.Count, $"iteration {i}");
+                Assert.IsTrue(collector.Changed.Contains(entity.EntityId), $"iteration {i}");
+            }
+
+            collector.Flush();
+            Assert.AreEqual(0, collector.Changed.Count);
+
+            collector.Flush();
+            Assert.AreEqual(0, collector.Changed.Count);
+        }
+
+        [Test]
+        public void EntityCollector_NonLazyChange_AlternatingModifyAndFlush_EachFlushClearsChanged()
+        {
+            // ABABAB loop without LazyChange (realtime). Each modify
+            // makes E visible in Changed immediately, and the following
+            // Flush clears the realtime Changed buffer at the end of the
+            // phase. Across iterations this contract must hold without
+            // any cross-phase leakage.
+            var entity = _world.CreateEntity();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+            var collector = _world.CreateCollector(matcher, EntityCollectorFlag.ChangedOnRevision);
+
+            entity.CreateComponent<PositionComponent>();
+            collector.Flush();
+            collector.Flush();
+            Assert.AreEqual(0, collector.Changed.Count);
+
+            for (var i = 0; i < 4; i++)
+            {
+                ref var rw = ref entity.GetComponent<PositionComponent>().RW;
+                rw.X = i;
+
+                Assert.AreEqual(1, collector.Changed.Count, $"iteration {i} before flush");
+                Assert.IsTrue(collector.Changed.Contains(entity.EntityId), $"iteration {i} before flush");
+
+                collector.Flush();
+
+                Assert.AreEqual(0, collector.Changed.Count, $"iteration {i} after flush");
+            }
+        }
+
         // Test components (same as other test files)
         private struct PositionComponent : IComponent<PositionComponent>
         {
