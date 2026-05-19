@@ -174,6 +174,8 @@ namespace CoreECS
         /// <returns>True if the component appears in any matcher set</returns>
         public bool IsRelevantComponent(Type componentType)
         {
+            if (m_all.Count == 0 && m_any.Count == 0 && m_none.Count == 0)
+                return true;
             return m_all.Contains(componentType) || m_any.Contains(componentType) || m_none.Contains(componentType);
         }
 
