@@ -315,10 +315,10 @@ namespace CoreECS
         }
 
         /// <summary>
-        /// Creates a new entity collector with the specified matcher and flag.
+        /// Creates a structural-change entity collector for the specified matcher.
         /// </summary>
         /// <param name="matcher">The entity matcher to use for filtering entities</param>
-        /// <param name="flag">The flag to use for the collector</param>
+        /// <param name="flag">Flags controlling which events are mirrored into <see cref="IEntityCollector.Changed"/>; defaults to <see cref="EntityCollectorFlag.Default"/></param>
         /// <returns>A new IEntityCollector instance</returns>
         /// <exception cref="InvalidOperationException">Thrown when EntityMatch manager is not available</exception>
         public IEntityCollector CreateCollector(IEntityMatcher matcher,

@@ -90,7 +90,7 @@ namespace CoreECS.Managers
             public IReadOnlyList<ulong> Clashing => Buffers[CLASHING_BUFFER_INDEX];
 
             /// <summary>
-            /// Gets the changed entities buffer.
+            /// Gets the published changed-entity buffer for the current flush phase.
             /// </summary>
             public IReadOnlyList<ulong> Changed => Buffers[CHANGED_BUFFER_INDEX];
 
@@ -100,23 +100,26 @@ namespace CoreECS.Managers
             public bool Destroyed { get; private set; } = false;
 
             /// <summary>
-            /// Gets a value indicating whether revision-only updates should appear in the changed buffer.
+            /// Gets a value indicating whether component data revisions are mirrored into
+            /// <see cref="Changed"/>.
             /// </summary>
             public readonly bool TrackRevisionChanged;
 
             /// <summary>
-            /// Gets a value indicating whether entities entering the collector should appear in the changed buffer.
+            /// Gets a value indicating whether entities entering the collector are mirrored into
+            /// <see cref="Changed"/>.
             /// </summary>
             public readonly bool TrackMatchChanged;
 
             /// <summary>
-            /// Gets a value indicating whether entities leaving the collector should appear in the changed buffer.
+            /// Gets a value indicating whether entities leaving the collector are mirrored into
+            /// <see cref="Changed"/>.
             /// </summary>
             public readonly bool TrackClashChanged;
 
             /// <summary>
-            /// Gets a value indicating whether only match-relevant component changes
-            /// should be tracked in the changed buffer.
+            /// Gets a value indicating whether component-driven <see cref="Changed"/> entries are
+            /// limited to matcher-relevant component types.
             /// </summary>
             public readonly bool HasChangeComponent;
 
@@ -295,7 +298,7 @@ namespace CoreECS.Managers
             }
 
             /// <summary>
-            /// Marks an entity as changed in either realtime or deferred mode.
+            /// Queues an entity for the next <see cref="Flush"/> <see cref="Changed"/> publish.
             /// </summary>
             /// <param name="entityId">Entity identifier to mark as changed.</param>
             public void MarkChanged(ulong entityId)
@@ -458,7 +461,7 @@ namespace CoreECS.Managers
                 return;
             }
 
-            // Membership unchanged, but structure still changed while the entity stayed in the collector.
+            // Membership unchanged, but match-relevant composition changed while still collected.
             if (!(isMatched ^ alreadyCollected))
             {
                 if (alreadyCollected && isMatched
@@ -486,9 +489,10 @@ namespace CoreECS.Managers
         }
 
         /// <summary>
-        /// Determines whether a component type change should be tracked
-        /// based on the ChangeComponent flag and matcher relevance.
-        /// When null, or HasChangeComponent is false, always passes.
+        /// Determines whether a component event should be mirrored into <see cref="Collector.Changed"/>
+        /// based on <see cref="EntityCollectorFlag.RelatedComponentOnly"/> and matcher relevance.
+        /// When <paramref name="componentType"/> is null, or <see cref="Collector.HasChangeComponent"/>
+        /// is false, always passes.
         /// </summary>
         private static bool RelevanceGate(Collector collector, IEntityMatcher matcher, Type componentType)
         {
