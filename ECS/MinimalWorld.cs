@@ -47,11 +47,6 @@ namespace CoreECS
         /// Gets the injection proxy built on first startup. Null before <see cref="Startup"/>.
         /// </summary>
         public IInjectionProxy InjectionProxy { get; private set; }
-
-        /// <summary>
-        /// Legacy runtime instance registry. Not used by startup; retained for compatibility and tests.
-        /// </summary>
-        public Injector Injection { get; } = new Injector();
         
         /// <summary>
         /// Gets a value indicating whether the world is ready for operation.
@@ -99,6 +94,9 @@ namespace CoreECS
             // Create mediator if not exists
             if (firstStart)
             {
+                var factory = GetInjectionProxyFactory();
+                var collection = factory.CreateServiceCollection();
+                
                 m_mediator = new ManagerMediator(this);
 
                 try
@@ -109,13 +107,20 @@ namespace CoreECS
                 {
                     Log.Exp(e, nameof(OnRegisterManager));
                 }
-
-                var factory = GetInjectionProxyFactory();
-                var collection = factory.CreateServiceCollection();
+                
                 RegisterRequiredServices(collection);
-                RegisterServices(collection);
+                
+                try
+                {
+                    RegisterServices(collection);
+                }
+                catch (Exception e)
+                {
+                    Log.Exp(e, nameof(RegisterServices));
+                }
+                
+                
                 InjectionProxy = factory.CreateProxy(collection);
-
                 m_mediator.Construct(InjectionProxy);
                 
                 try
@@ -260,8 +265,7 @@ namespace CoreECS
         /// </summary>
         protected virtual IInjectionProxyFactory GetInjectionProxyFactory()
         {
-            throw new NotImplementedException(
-                $"{GetType().Name} must override {nameof(GetInjectionProxyFactory)} to provide an {nameof(IInjectionProxyFactory)} implementation.");
+            throw new NotImplementedException($"{GetType().Name} must override {nameof(GetInjectionProxyFactory)} to provide an {nameof(IInjectionProxyFactory)} implementation.");
         }
 
         /// <summary>
@@ -270,23 +274,14 @@ namespace CoreECS
         /// <param name="services">The service collection</param>
         protected internal virtual void RegisterRequiredServices(IServiceCollection services)
         {
-            Assertion.ArgumentNotNull(services);
             services.AddSingleton<IWorld>(this);
             services.AddSingleton(GetType(), this);
-            services.AddSingleton(Injection);
 
+            // Register managers.
             foreach (var (_, implementationType) in m_mediator.RegisteredManagers)
             {
                 services.AddSingleton(implementationType);
             }
-        }
-
-        /// <summary>
-        /// Registers additional services after <see cref="RegisterRequiredServices"/>.
-        /// </summary>
-        /// <param name="services">The service collection</param>
-        protected virtual void RegisterServices(IServiceCollection services)
-        {
         }
 
         #endregion
@@ -299,6 +294,12 @@ namespace CoreECS
         /// </summary>
         /// <param name="register">The manager register interface</param>
         protected abstract void OnRegisterManager(IManagerRegister register);
+
+        /// <summary>
+        /// Registers additional services after <see cref="OnRegisterManager"/>.
+        /// </summary>
+        /// <param name="services">The service collection</param>
+        protected abstract void RegisterServices(IServiceCollection services);
 
         /// <summary>
         /// Called after all managers have been constructed.

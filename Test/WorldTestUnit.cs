@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
 using CoreECS;
 using CoreECS.Defines;
 using CoreECS.Managers;
-using CoreECS.Utils;
-using NUnit.Framework;
-using TinyECS;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace TinyECS.Test
 {
@@ -143,30 +139,6 @@ namespace TinyECS.Test
             world2.DestroyEntity(entity2);
             world1.Shutdown();
             world2.Shutdown();
-        }
-        
-        [Test]
-        public void World_Injection_CanInjectDependencies()
-        {
-            // Arrange
-            var world = new World();
-            world.Startup();
-            world.Injection.Register(new TestService());
-            world.RegisterSystem<DependencyTestSystem>();
-            
-            // Act
-            world.BeginTick();
-            world.Tick();
-            world.EndTick();
-            
-            // Assert
-            var system = world.FindSystem<DependencyTestSystem>();
-            Assert.IsNotNull(system);
-            Assert.IsNotNull(system.TestService);
-            Assert.IsTrue(system.TestServiceCalled);
-            
-            // Cleanup
-            world.Shutdown();
         }
         
         [Test]
@@ -531,10 +503,12 @@ namespace TinyECS.Test
         {
             protected override IInjectionProxyFactory GetInjectionProxyFactory()
             {
-                return new BuiltinInjectionProxyFactory(Injection);
+                return new TestInjectionProxyFactory();
             }
 
             public bool RegisterManagerCalled { get; private set; }
+            public bool RegisterRequiredServiceCalled { get; private set; }
+            public bool RegisterServiceCalled { get; private set; }
             public bool ConstructCalled { get; private set; }
             public bool FirstStartCalled { get; private set; }
             public bool StartCalled { get; private set; }
@@ -546,6 +520,17 @@ namespace TinyECS.Test
             protected override void OnRegisterManager(IManagerRegister register)
             {
                 RegisterManagerCalled = true;
+            }
+
+            protected override void RegisterRequiredServices(IServiceCollection services)
+            {
+                base.RegisterRequiredServices(services);
+                RegisterRequiredServiceCalled = true;
+            }
+
+            protected override void RegisterServices(IServiceCollection services)
+            {
+                RegisterServiceCalled = true;
             }
 
             protected override void OnConstruct()
@@ -619,12 +604,49 @@ namespace TinyECS.Test
             }
         }
         
+        private class TestInjectionProxy : IInjectionProxy
+        {
+            public IServiceProvider ServiceProvider { get; }
+
+            public TestInjectionProxy(IServiceProvider serviceProvider)
+            {
+                ServiceProvider = serviceProvider;
+            }
+
+            public object CreateObject(Type objectType)
+            {
+                return ActivatorUtilities.CreateInstance(ServiceProvider, objectType);
+            }
+
+            public T CreateObject<T>()
+            {
+                return (T)CreateObject(typeof(T));
+            }
+        }
+
+        private class TestInjectionProxyFactory : IInjectionProxyFactory
+        {
+            public IServiceCollection CreateServiceCollection()
+            {
+                return new ServiceCollection();
+            }
+
+            public IInjectionProxy CreateProxy(IServiceCollection collection)
+            {
+                IInjectionProxy proxy = null;
+                collection.AddSingleton<IInjectionProxy>(_ => proxy);
+                var provider = collection.BuildServiceProvider();
+                proxy = new TestInjectionProxy(provider);
+                return proxy;
+            }
+        }
+
         // Custom world to test manager lifecycle
         private class TestWorldWithCustomManager : MinimalWorld
         {
             protected override IInjectionProxyFactory GetInjectionProxyFactory()
             {
-                return new BuiltinInjectionProxyFactory(Injection);
+                return new TestInjectionProxyFactory();
             }
 
             protected override void OnRegisterManager(IManagerRegister register)
@@ -632,7 +654,11 @@ namespace TinyECS.Test
                 // Register our test manager
                 register.RegisterManager<IWorldManager, TestWorldManager>();
             }
-            
+
+            protected override void RegisterServices(IServiceCollection services)
+            {
+            }
+
             protected override void OnConstruct()
             {
                 // Manager should be constructed here
@@ -663,5 +689,6 @@ namespace TinyECS.Test
             {
             }
         }
+        
     }
 }
