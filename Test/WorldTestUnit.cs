@@ -522,7 +522,7 @@ namespace TinyECS.Test
                 RegisterManagerCalled = true;
             }
 
-            protected override void RegisterRequiredServices(IServiceCollection services)
+            protected internal override void RegisterRequiredServices(IServiceCollection services)
             {
                 base.RegisterRequiredServices(services);
                 RegisterRequiredServiceCalled = true;
