@@ -1,6 +1,7 @@
 using System;
 using CoreECS.Defines;
 using CoreECS.Utils;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoreECS
 {
@@ -43,8 +44,12 @@ namespace CoreECS
         public uint TickCount { get; private set; } = 0;
         
         /// <summary>
-        /// Gets the dependency injection container for this world.
-        /// Used for injecting dependencies into managers and other components.
+        /// Gets the injection proxy built on first startup. Null before <see cref="Startup"/>.
+        /// </summary>
+        public IInjectionProxy InjectionProxy { get; private set; }
+
+        /// <summary>
+        /// Legacy runtime instance registry. Not used by startup; retained for compatibility and tests.
         /// </summary>
         public Injector Injection { get; } = new Injector();
         
@@ -94,13 +99,8 @@ namespace CoreECS
             // Create mediator if not exists
             if (firstStart)
             {
-                // Register basic dependencies for injection
-                Injection.Register(Injection);
-                Injection.Register(this);
+                m_mediator = new ManagerMediator(this);
 
-                // Create mediator and initialize managers
-                m_mediator = new ManagerMediator(this, Injection);
-                
                 try
                 {
                     OnRegisterManager(m_mediator);
@@ -109,9 +109,14 @@ namespace CoreECS
                 {
                     Log.Exp(e, nameof(OnRegisterManager));
                 }
-                
-                // Construct managers using dependency injection
-                m_mediator.Construct();
+
+                var factory = GetInjectionProxyFactory();
+                var collection = factory.CreateServiceCollection();
+                RegisterRequiredServices(collection);
+                RegisterServices(collection);
+                InjectionProxy = factory.CreateProxy(collection);
+
+                m_mediator.Construct(InjectionProxy);
                 
                 try
                 {
@@ -247,6 +252,43 @@ namespace CoreECS
             }
             m_ticking = false;
         }
+
+        #region Dependency Injection
+
+        /// <summary>
+        /// Returns the factory used to build <see cref="InjectionProxy"/>.
+        /// </summary>
+        protected virtual IInjectionProxyFactory GetInjectionProxyFactory()
+        {
+            return new CoreInjectionProxyFactory();
+        }
+
+        /// <summary>
+        /// Registers framework-required services into the collection before the proxy is built.
+        /// </summary>
+        /// <param name="services">The service collection</param>
+        protected internal virtual void RegisterRequiredServices(IServiceCollection services)
+        {
+            Assertion.ArgumentNotNull(services);
+            services.AddSingleton<IWorld>(this);
+            services.AddSingleton(GetType(), this);
+            services.AddSingleton(Injection);
+
+            foreach (var (_, implementationType) in m_mediator.RegisteredManagers)
+            {
+                services.AddSingleton(implementationType);
+            }
+        }
+
+        /// <summary>
+        /// Registers additional services after <see cref="RegisterRequiredServices"/>.
+        /// </summary>
+        /// <param name="services">The service collection</param>
+        protected virtual void RegisterServices(IServiceCollection services)
+        {
+        }
+
+        #endregion
 
         #region Lifecycle Events
 
