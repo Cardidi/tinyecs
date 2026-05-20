@@ -1,8 +1,6 @@
-using System;
 using CoreECS.Utils;
-using NUnit.Framework;
 
-namespace TinyECS.Test
+namespace CoreECS.Test
 {
     [TestFixture]
     public class LogTestUnit

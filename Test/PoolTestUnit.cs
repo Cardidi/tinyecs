@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using CoreECS.Utils;
-using NUnit.Framework;
 
-namespace TinyECS.Test
+namespace CoreECS.Test
 {
     [TestFixture]
     public class PoolTestUnit

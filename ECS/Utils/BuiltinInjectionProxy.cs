@@ -2,7 +2,7 @@ using System;
 using CoreECS.Defines;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CoreECS
+namespace CoreECS.Utils
 {
     internal class BuiltinInjectionProxy : IInjectionProxy
     {

@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using CoreECS;
 using CoreECS.Defines;
-using NUnit.Framework;
-using TinyECS;
 
-namespace TinyECS.Test
+namespace CoreECS.Test
 {
     [TestFixture]
     public class StressTestUnit

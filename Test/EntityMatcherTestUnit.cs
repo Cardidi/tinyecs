@@ -1,13 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using CoreECS;
 using CoreECS.Defines;
 using CoreECS.Managers;
-using NUnit.Framework;
-using TinyECS;
 
-namespace TinyECS.Test
+namespace CoreECS.Test
 {
     [TestFixture]
     public class EntityMatcherTestUnit

@@ -1,9 +1,8 @@
-using System;
-using CoreECS;
 using CoreECS.Defines;
+using CoreECS.Utils;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace TinyECS.Test
+namespace CoreECS.Test
 {
     [TestFixture]
     public class BuiltinInjectionProxyTestUnit
