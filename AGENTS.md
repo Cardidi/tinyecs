@@ -43,7 +43,7 @@ This repository follows [Conventional Commits](https://www.conventionalcommits.o
 
 | Field | Rules |
 |-------|--------|
-| `type` | One of: `feat`, `fix`, `refactor`, `doc`, `test`, `build`, `ci`, `chore` |
+| `type` | One of: `feat`, `fix`, `refactor`, `doc`, `test`, `ci`, `chore` |
 | `scope` | Area of change; common values: `core`, `test`, `doc`, `proj`, `extension`, `utils`, `nuget`, `github_actions` |
 | Description | Imperative, concise summary of *what* changed (e.g. `add LazyChange flags`, `fix empty matcher relevance`) |
 
@@ -56,9 +56,8 @@ This repository follows [Conventional Commits](https://www.conventionalcommits.o
 | `refactor` | Internal restructuring without intended behavior change |
 | `doc` | Documentation or comments only |
 | `test` | Tests only (including benchmarks) |
-| `build` | Build tooling, packaging, or project files |
 | `ci` | CI/CD workflows |
-| `chore` | Maintenance that does not fit the above |
+| `chore` | Maintenance, build tooling, packaging, or project files that do not fit the above |
 
 **Body (optional):** Add a blank line after the subject, then one or more paragraphs when the *why* or non-obvious behavior is not clear from the subject alone. Example from history:
 
