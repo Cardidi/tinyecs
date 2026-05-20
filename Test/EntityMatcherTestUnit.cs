@@ -424,7 +424,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.LazyAdd | EntityCollectorFlag.ChangedOnRevision | EntityCollectorFlag.LazyChange);
+                EntityCollectorFlag.ChangedOnRevision);
             
             collector.Flush();
             
@@ -440,31 +440,6 @@ namespace TinyECS.Test
             collector.Flush();
             
             Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
-            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
-        }
-
-        [Test]
-        public void EntityMatcher_Change_Existing_Component_NonLazyChange_Immediate()
-        {
-            var entity = _world.CreateEntity();
-            var collector = _world.CreateCollector(
-                EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.LazyAdd | EntityCollectorFlag.ChangedOnRevision);
-
-            collector.Flush();
-
-            Assert.IsFalse(collector.Collected.Contains(entity.EntityId));
-
-            entity.CreateComponent<PositionComponent>();
-            collector.Flush();
-
-            Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
-
-            _ = entity.GetComponent<PositionComponent>().RW;
-            Assert.IsTrue(collector.Changed.Contains(entity.EntityId));
-            collector.Flush();
-
-            Assert.IsFalse(collector.Changed.Contains(entity.EntityId));
             Assert.IsTrue(collector.Collected.Contains(entity.EntityId));
         }
 
