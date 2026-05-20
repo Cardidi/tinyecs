@@ -619,7 +619,7 @@ namespace TinyECS.Test
         public void StressTest_RWPerformanceBaseline_WithRevisionTrackingCollector()
         {
             const int iterations = 100000;
-            const EntityCollectorFlag collectorFlag = EntityCollectorFlag.ChangedOnRevision;
+            const EntityCollectorFlag collectorFlag = EntityCollectorFlag.RevisionAsChange;
 
             var repeatedGetter = MeasureBestRwScenario(
                 "RW baseline with revision collector (repeated getter)",

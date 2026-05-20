@@ -17,29 +17,29 @@ namespace CoreECS.Defines
         /// <summary>
         /// Include entities with component revision changes in Changed.
         /// </summary>
-        ChangedOnRevision = 1 << 2,
+        RevisionAsChange = 1 << 2,
 
         /// <summary>
         /// Include entities entering collector in Changed.
         /// </summary>
-        ChangedOnMatching = 1 << 3,
+        MatchAsChange = 1 << 3,
 
         /// <summary>
         /// Include entities leaving collector in Changed.
         /// </summary>
-        ChangedOnClashing = 1 << 4,
+        ClashAsChange = 1 << 4,
 
         /// <summary>
         /// When set, only Match related component changes will be
         /// tracked in the Changed buffer. When not set, all component
         /// changes are tracked regardless of component type relevance.
         /// </summary>
-        ChangeMustBeRelatedComponent = 1 << 6,
+        RelatedComponentOnly = 1 << 6,
 
         /// <summary>
         /// Default collector behavior.
         /// </summary>
-        Default = ChangedOnRevision | ChangedOnMatching | ChangeMustBeRelatedComponent,
+        Default = RevisionAsChange | MatchAsChange | RelatedComponentOnly,
 
     }
     

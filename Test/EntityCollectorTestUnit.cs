@@ -28,14 +28,14 @@ namespace TinyECS.Test
         public void EntityCollectorFlag_Masks_RemainStable()
         {
             Assert.AreEqual(0, (int)EntityCollectorFlag.None);
-            Assert.AreEqual(1 << 2, (int)EntityCollectorFlag.ChangedOnRevision);
-            Assert.AreEqual(1 << 3, (int)EntityCollectorFlag.ChangedOnMatching);
-            Assert.AreEqual(1 << 4, (int)EntityCollectorFlag.ChangedOnClashing);
-            Assert.AreEqual(1 << 6, (int)EntityCollectorFlag.ChangeMustBeRelatedComponent);
+            Assert.AreEqual(1 << 2, (int)EntityCollectorFlag.RevisionAsChange);
+            Assert.AreEqual(1 << 3, (int)EntityCollectorFlag.MatchAsChange);
+            Assert.AreEqual(1 << 4, (int)EntityCollectorFlag.ClashAsChange);
+            Assert.AreEqual(1 << 6, (int)EntityCollectorFlag.RelatedComponentOnly);
             Assert.AreEqual(
-                EntityCollectorFlag.ChangedOnRevision
-                | EntityCollectorFlag.ChangedOnMatching
-                | EntityCollectorFlag.ChangeMustBeRelatedComponent,
+                EntityCollectorFlag.RevisionAsChange
+                | EntityCollectorFlag.MatchAsChange
+                | EntityCollectorFlag.RelatedComponentOnly,
                 EntityCollectorFlag.Default);
         }
 
@@ -92,7 +92,7 @@ namespace TinyECS.Test
             entity.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
 
             AssertOnly(collector.Matching, entity.EntityId);
@@ -187,7 +187,7 @@ namespace TinyECS.Test
             entity.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             var beforeChange = new CollectorSnapshot(collector);
@@ -213,7 +213,7 @@ namespace TinyECS.Test
             leaving.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             var beforeChange = new CollectorSnapshot(collector);
@@ -246,7 +246,7 @@ namespace TinyECS.Test
             updating.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             var beforeChange = new CollectorSnapshot(collector);
@@ -304,7 +304,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.ChangedOnMatching);
+                EntityCollectorFlag.MatchAsChange);
 
             entity.CreateComponent<PositionComponent>();
             collector.Flush();
@@ -330,7 +330,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.ClashAsChange);
 
             entity.CreateComponent<PositionComponent>();
             collector.Flush();
@@ -352,7 +352,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.ChangedOnRevision);
+                EntityCollectorFlag.RevisionAsChange);
 
             entity.CreateComponent<PositionComponent>();
             collector.Flush();
@@ -379,8 +379,8 @@ namespace TinyECS.Test
         public void EntityCollector_ChangedOnRevisionWithRelatedComponentFlag_FiltersIrrelevantRevisions()
         {
             const EntityCollectorFlag flag =
-                EntityCollectorFlag.ChangedOnRevision
-                | EntityCollectorFlag.ChangeMustBeRelatedComponent;
+                EntityCollectorFlag.RevisionAsChange
+                | EntityCollectorFlag.RelatedComponentOnly;
 
             var entity = _world.CreateEntity();
             entity.CreateComponent<PositionComponent>();
@@ -468,7 +468,7 @@ namespace TinyECS.Test
             entity.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.ClashAsChange);
 
             collector.Flush();
             entity.DestroyComponent<PositionComponent>();
@@ -504,7 +504,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.ChangedOnRevision);
+                EntityCollectorFlag.RevisionAsChange);
             entity.CreateComponent<PositionComponent>();
             collector.Flush();
             collector.Flush();
@@ -621,7 +621,7 @@ namespace TinyECS.Test
             entity1.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             
@@ -678,8 +678,8 @@ namespace TinyECS.Test
         public void EntityCollector_WithoutChangeComponent_AddIrrelevantComponent_MarksChanged()
         {
             const EntityCollectorFlag flag =
-                EntityCollectorFlag.ChangedOnMatching
-                | EntityCollectorFlag.ChangedOnRevision;
+                EntityCollectorFlag.MatchAsChange
+                | EntityCollectorFlag.RevisionAsChange;
 
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>(), flag);
@@ -699,8 +699,8 @@ namespace TinyECS.Test
         public void EntityCollector_WithoutChangeComponent_ModifyIrrelevantComponent_MarksChanged()
         {
             const EntityCollectorFlag flag =
-                EntityCollectorFlag.ChangedOnMatching
-                | EntityCollectorFlag.ChangedOnRevision;
+                EntityCollectorFlag.MatchAsChange
+                | EntityCollectorFlag.RevisionAsChange;
 
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>(), flag);
@@ -742,7 +742,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
 
             entity.CreateComponent<PositionComponent>();
             entity.CreateComponent<VelocityComponent>();
@@ -763,7 +763,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
 
             entity.CreateComponent<PositionComponent>();
             entity.CreateComponent<VelocityComponent>();
@@ -782,9 +782,9 @@ namespace TinyECS.Test
         public void EntityCollector_WithoutChangeComponent_RemoveIrrelevantComponent_MarksChanged()
         {
             const EntityCollectorFlag flag =
-                EntityCollectorFlag.ChangedOnMatching
-                | EntityCollectorFlag.ChangedOnRevision
-                | EntityCollectorFlag.ChangedOnClashing;
+                EntityCollectorFlag.MatchAsChange
+                | EntityCollectorFlag.RevisionAsChange
+                | EntityCollectorFlag.ClashAsChange;
 
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>(), flag);
@@ -884,7 +884,7 @@ namespace TinyECS.Test
                 .OfNone<VelocityComponent>();
             var collector = _world.CreateCollector(
                 matcher,
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
 
             entity.CreateComponent<PositionComponent>();
             collector.Flush();
@@ -1025,7 +1025,7 @@ namespace TinyECS.Test
             clashEntity.CreateComponent<PositionComponent>();
             var clashCollector = _world.CreateCollector(
                 EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             clashCollector.Flush();
             clashCollector.Flush();
 
@@ -1116,7 +1116,7 @@ namespace TinyECS.Test
             entity.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfNone<HealthComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             var beforeChange = new CollectorSnapshot(collector);
@@ -1155,7 +1155,7 @@ namespace TinyECS.Test
             clashEntity.CreateComponent<PositionComponent>();
             var clashCollector = _world.CreateCollector(
                 EntityMatcher.With.OfNone<HealthComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             clashCollector.Flush();
             clashCollector.Flush();
 
@@ -1228,7 +1228,7 @@ namespace TinyECS.Test
             entity.CreateComponent<PositionComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>().OfNone<HealthComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             var beforeChange = new CollectorSnapshot(collector);
@@ -1269,7 +1269,7 @@ namespace TinyECS.Test
             clashEntity.CreateComponent<PositionComponent>();
             var clashCollector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>().OfNone<HealthComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             clashCollector.Flush();
             clashCollector.Flush();
 
@@ -1341,7 +1341,7 @@ namespace TinyECS.Test
             entity.CreateComponent<VelocityComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>().OfAny<VelocityComponent>().OfAny<HealthComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             var beforeChange = new CollectorSnapshot(collector);
@@ -1507,7 +1507,7 @@ namespace TinyECS.Test
             entity.CreateComponent<VelocityComponent>();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>().OfAny<VelocityComponent>().OfAny<HealthComponent>().OfNone<DamageComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             collector.Flush();
             collector.Flush();
             var beforeChange = new CollectorSnapshot(collector);
@@ -1580,7 +1580,7 @@ namespace TinyECS.Test
             var matchingEntity = _world.CreateEntity();
             var matchingCollector = _world.CreateCollector(
                 EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>().OfNone<HealthComponent>(),
-                EntityCollectorFlag.ChangedOnMatching);
+                EntityCollectorFlag.MatchAsChange);
             matchingCollector.Flush();
             matchingCollector.Flush();
             matchingEntity.CreateComponent<PositionComponent>();
@@ -1593,7 +1593,7 @@ namespace TinyECS.Test
             clashingLastAny.CreateComponent<VelocityComponent>();
             var clashingCollector = _world.CreateCollector(
                 EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>().OfNone<HealthComponent>(),
-                EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.ClashAsChange);
             clashingCollector.Flush();
             clashingCollector.Flush();
             clashingForbidden.CreateComponent<HealthComponent>();
@@ -1606,7 +1606,7 @@ namespace TinyECS.Test
             revisionEntity.CreateComponent<PositionComponent>();
             var revisionCollector = _world.CreateCollector(
                 EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>().OfNone<HealthComponent>(),
-                EntityCollectorFlag.ChangedOnRevision);
+                EntityCollectorFlag.RevisionAsChange);
             revisionCollector.Flush();
             revisionCollector.Flush();
             ref var revision = ref revisionEntity.GetComponent<PositionComponent>().RW;
@@ -1619,7 +1619,7 @@ namespace TinyECS.Test
             relatedEntity.CreateComponent<ManaComponent>();
             var relatedCollector = _world.CreateCollector(
                 EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>().OfNone<HealthComponent>(),
-                EntityCollectorFlag.ChangedOnRevision | EntityCollectorFlag.ChangeMustBeRelatedComponent);
+                EntityCollectorFlag.RevisionAsChange | EntityCollectorFlag.RelatedComponentOnly);
             relatedCollector.Flush();
             relatedCollector.Flush();
             ref var unrelated = ref relatedEntity.GetComponent<ManaComponent>().RW;
@@ -1647,7 +1647,7 @@ namespace TinyECS.Test
             defaultClashEntity.CreateComponent<VelocityComponent>();
             var defaultClashCollector = _world.CreateCollector(
                 EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>().OfNone<HealthComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange);
             defaultClashCollector.Flush();
             defaultClashCollector.Flush();
             defaultClashEntity.DestroyComponent<VelocityComponent>();
