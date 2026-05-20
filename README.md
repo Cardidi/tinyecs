@@ -1,535 +1,123 @@
-# CoreECS - State First ECS Toolkit
+<div align="center">
 
-CoreECS is a lightweight, easy-to-use Entity-Component-System (ECS) implementation designed for C#-based game applications. By combining ComponentStore and EntityGraph, it strikes an effective balance between flexibility and performance.
+# CoreECS
 
-Unlike a full application framework, CoreECS is built for seamless integration. It can coexist alongside other ECS solutions, such as UnityECS, allowing you to incorporate it into existing projects with minimal friction.
+**State-first Entity–Component–System toolkit for C# games**
 
-The toolkit's design was refined through a turn-based card game which makes CoreECS inherently focused on efficient and robust state management for state-driven scenarios.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%20netstandard2.1-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![PR Build and Test](https://github.com/Cardidi/CoreECS/actions/workflows/pr-build-test.yml/badge.svg)](https://github.com/Cardidi/CoreECS/actions/workflows/pr-build-test.yml)
 
-## Why you should to use toolkit instead of framework?
+Lightweight ECS you can embed beside Unity ECS or other stacks — built around **ComponentStore**, **EntityGraph**, and **structural-change collectors**.
 
-Throughout my career, I have worked on card-based games as well as RPGs; on commercial multiplayer titles as well as low-budget indie projects. In these experiences, I have observed a fascinating phenomenon: we often see common design approaches appearing in games of different scales and genres—such as the design philosophy embodied by CoreECS. If we try to force complex problems into a single framework, we may lose the flexibility to handle issues creatively—your thinking often ends up revolving around engineering concerns, like whether your framework supports a certain feature, how to implement it, and how to balance development time with efficiency. Even game engines inherently carry a design philosophy that you must adapt to, and this constraint can become a major time-consuming challenge in software engineering.
+[Quick Start Guide](docs/QUICK_START.md) · [License](LICENSE) · [NuGet](https://www.nuget.org/packages/CoreECS)
 
-That is why I believe a toolkit—a loosely coupled organizational approach—can more easily help developers bypass cumbersome engineering structures, select the right tools as needed, reduce development costs, and build software designs suited to the nature of their projects. This was my original motivation for developing CoreECS, and it also addressed a specific technical challenge I faced. My project initially planned to use Unity ECS for world updates, but Unity ECS proved quite clumsy in handling state changes—it sacrifices almost all flexibility for the sake of performance. To achieve my development goals, I had to write additional features to compensate. Moreover, due to the strict constraints Unity ECS imposes on C#, I struggled to work smoothly in my preferred development style. I needed a solution that balanced performance and flexibility.
+</div>
 
-Therefore, I designed CoreECS with a "state-first" philosophy and embedded it into my game to work alongside Unity ECS, achieving exactly that balance. I hope this lightweight toolkit can also help you build a development environment that fits your project—whether as a simple ECS manager or as a guardian for frontend-backend consistency, if it fits your needs, then it’s the right choice!
+---
 
-## Key Concepts
+## Features
 
-Those are really common concepts in ECS, and you can find them in most ECS implementations.
+| Area | Highlights |
+|------|------------|
+| **Architecture** | `ComponentStore` + `EntityGraph` for flexible, compact component storage |
+| **State-first** | `EntityCollector` with `Flush()`, `Matching` / `Clashing` / `Changed` buffers |
+| **Queries** | Fluent `EntityMatcher` (`OfAll`, `OfAny`, `OfNone`, mask filtering) |
+| **Components** | `RO` / `RW` refs, optional `OnCreate` / `OnDestroy`, extension helpers |
+| **Systems** | Ordered execution, `TickGroup` masks, constructor DI via `IInjectionProxy` |
+| **Targets** | `net8.0` and `netstandard2.1` |
 
-- **Entity**: A unique identifier that groups components together
-- **Component**: A data structure that holds properties/data (no logic)
-- **System**: Contains the logic that operates on entities with specific component combinations
-- **World**: Container that manages entities, components, and systems
-- **Matcher**: Defines criteria for selecting entities based on their components
-- **Collector**: Tracks entities that match specific criteria and efficiently updates when entities change
-- **InjectionProxy**: Resolves constructor dependencies for systems (via `RegisterServices` and `IInjectionProxy`)
-- **Tick**: A single iteration of the ECS framework, where systems are processed in a defined order.
-- **Mask**: A bitwise flag that is used to filter entities.
+---
 
-## Quick Start Guide
+## Installation
 
-### 1. Creating a World
-A `World` represents the container for all entities, components, and systems. It manages the lifecycle of the ECS framework.
+```bash
+dotnet add package CoreECS
+```
+
+Requires [.NET 8 SDK](https://dotnet.microsoft.com/download) (see `global.json` for SDK pinning).
+
+```bash
+git clone https://github.com/Cardidi/CoreECS.git
+cd CoreECS
+dotnet build
+dotnet test
+```
+
+**New to the API?** Follow the [**Quick Start Guide**](docs/QUICK_START.md) — world lifecycle, components, systems, matchers, collectors, and a full sample.
+
+---
+
+## At a Glance
 
 ```csharp
 using CoreECS;
 
-var world = new World();
-world.Startup(); // Initialize the world
-```
-
-Before calling `Startup()`, you should **NOT** do any following operations:
-
-- Create entities
-- Add components to entities
-- Register systems
-
-Before `Startup()`, you can prepare a custom world subclass:
-
-- Override `RegisterServices` to register services into the DI container (built during the first `Startup()`)
-- Override lifecycle hooks (`OnRegisterManager`, `OnConstruct`, `OnStart`, tick/shutdown hooks) or register additional managers
-
-After `Startup()`, use `World.InjectionProxy` to resolve registered services. It is `null` until the first `Startup()` completes.
-
-Be aware that the world is not thread-safe. You should only access the world from the main thread.
-
-When this world is no longer used, ensure that you call `World.Shutdown()` to terminate this world and release all resources.
-
-### 2. Defining Components
-Components are simple data structures that implement the `IComponent<T>` interface. They hold data but don't contain logic.
-
-```csharp
-public struct PositionComponent : IComponent<PositionComponent>
-{
-    public float X;
-    public float Y;
-}
-
-public struct VelocityComponent : IComponent<VelocityComponent>
-{
-    public float X;
-    public float Y;
-}
-
-public struct HealthComponent : IComponent<HealthComponent>
-{
-    public float Value;
-}
-```
-
-Components can optionally implement lifecycle methods:
-
-```csharp
-public struct LifecycleComponent : IComponent<LifecycleComponent>
-{
-    public bool OnCreateCalled;
-    public bool OnDestroyCalled;
-    
-    public void OnCreate(ulong entityId)
-    {
-        OnCreateCalled = true;
-    }
-    
-    public void OnDestroy(ulong entityId)
-    {
-        OnDestroyCalled = true;
-    }
-}
-```
-
-### 3. Creating Entities
-
-Entities serve as unique identifiers that bundle components together. While the underlying representation of an entity is a `ulong` value, it is recommended to use the `Entity` struct for better functionality and type safety. Use `World.GetEntity()` to convert a raw `ulong` identifier into a fully-featured `Entity` struct.
-
-```csharp
-// Create an entity
-var entity = world.CreateEntity();
-
-// Get a fully functional entity via World.GetEntity(ulong)
-var anotherEntity = world.GetEntity(entityId);
-```
-
-You can also add a mask to an entity to create types of entity.
-
-```csharp
-enum EntityType {
-    Actor = 1 << 1,
-    Terrian = 1 << 2
-}
-
-// Create an entity with mask
-var entityWithMask = world.CreateEntity((ulong) EntityType.Actor);
-```
-
-### 4. Adding Components to Entities
-Components can be added to entities to give them properties and data.
-
-```csharp
-// Add components to an entity
-var velocityRef = entity.CreateComponent<VelocityComponent>();
-velocityRef.RW.X = 1;
-velocityRef.RW.Y = 1;
-
-// Alternative way to set component data
-entity.CreateComponent<HealthComponent>().RW.Value = 100;
-
-// Create component with initial value (recommended for setting initial data)
-var positionRef = entity.CreateComponent(new PositionComponent { X = 10, Y = 20 });
-
-// Not recommended: OnCreate runs with default(T) before you overwrite via RW assignment
-var positionRef2 = entity.CreateComponent<PositionComponent>();
-positionRef2.RW = new PositionComponent { X = 10, Y = 20 };
-```
-
-### 5. Accessing Components
-Retrieve components from entities to read or modify their data. If you only need to read the component data, use `RO` property. If you need to modify the component data, use `RW` property.
-
-```csharp
-// Get a component from an entity
-var positionRef = entity.GetComponent<PositionComponent>();
-Console.WriteLine($"Position: ({positionRef.RO.X}, {positionRef.RO.Y})");
-
-// Check if entity has a specific component
-bool hasHealth = entity.HasComponent<HealthComponent>();
-Console.WriteLine($"Has Health: {hasHealth}");
-
-// Get all components of an entity
-var allComponents = entity.GetComponents();
-Console.WriteLine($"Total components: {allComponents.Length}");
-```
-
-#### RO / RW Access Notes
-
-- `RO` is read-only access and should be preferred when you only need to inspect values.
-- `RW` is writable access; modifying through `RW` marks the component as changed and can trigger collector revision tracking (`RevisionAsChange`).
-- If you only want to read in hot paths, avoid accidental writes through `RW` to prevent unnecessary change events.
-
-#### Helper Extension Methods
-Entity provides convenient extension methods for common component operations:
-
-```csharp
-// TryGetComponent - Safely get a component if it exists
-if (entity.TryGetComponent<PositionComponent>(out var positionRef))
-{
-    Console.WriteLine($"Position: ({positionRef.RO.X}, {positionRef.RO.Y})");
-}
-
-// GetOrCreateComponent - Get existing component or create new one
-// Returns true if component existed, false if it was created
-bool existed = entity.GetOrCreateComponent<VelocityComponent>(out var velocityRef);
-if (!existed)
-{
-    velocityRef.RW = new VelocityComponent { X = 1, Y = 1 };
-}
-
-// GetOrCreateComponent with initial value
-entity.GetOrCreateComponent(out var healthRef, new HealthComponent { Value = 100 });
-```
-
-### 6. Removing Components
-Components can be removed from entities when no longer needed.
-
-```csharp
-// Remove a component by reference
-entity.DestroyComponent(positionRef);
-
-// Remove a component by type
-entity.DestroyComponent<HealthComponent>();
-```
-
-### 7. Defining Systems
-Systems contain the logic that operates on entities with specific component combinations. Register dependencies in `RegisterServices`, then request them through constructor parameters when the world instantiates the system via `IInjectionProxy`.
-
-If you need to grouping system and wish those group can being ticked one by one, the best way is to add mask on system to filter which systems it should process. You can tick those system when you call `World.Tick(ulong mask)`.
-
-Create a collector to find relevant entities is the default way to access entities in a system. As you can see, use `World.CreateCollector()` to request collector when this system created and we can get those entities via `IEntityCollector.Collected`. Before iterating collected entities, call `Flush()` to publish buffered changes to the front buffers.
-
-```csharp
-public class MovementSystem : ISystem
-{
-    private World m_world;
-    private IEntityCollector m_movingEntities;
-    
-    public ulong TickGroup => ulong.MaxValue;
-    
-    public MovementSystem(World world)
-    {
-        m_world = world;
-    }
-    
-    public void OnCreate()
-    {
-        // Initialize system - create collectors to find relevant entities
-        m_movingEntities = m_world.CreateCollector(
-            EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>()
-        );
-    }
-    
-    public void OnTick(ulong tickMask)
-    {
-        // Process all entities that match the collector's criteria
-        m_movingEntities.Flush();
-        for (var i = 0; i < m_movingEntities.Collected.Count; i++)
-        {
-            var entity = m_world.GetEntity(m_movingEntities.Collected[i]);
-            
-            var position = entity.GetComponent<PositionComponent>();
-            var velocity = entity.GetComponent<VelocityComponent>();
-            
-            // Update position based on velocity
-            position.RW.X += velocity.RW.X;
-            position.RW.Y += velocity.RW.Y;
-        }
-    }
-    
-    public void OnDestroy()
-    {
-        // Clean up resources
-        m_movingEntities?.Dispose();
-    }
-}
-```
-
-### 8. Managing Systems
-Register and manage systems within the world. The execution order of system is matched with the order you register system (First In First Tick). Avoid changing system registration between `World.BeginTick()` and `World.EndTick()`. If you register or unregister a system during a tick, the change is queued and applied at the next `BeginTick()` (in `TeardownSystems`). Entity and component operations are not deferred.
-
-```csharp
-// Create a world instance
 var world = new World();
 world.Startup();
 
-// Register a system with the world
 world.RegisterSystem<MovementSystem>();
 
-// Find a system by type
-var movementSystem = world.FindSystem<MovementSystem>();
+var entity = world.CreateEntity();
+entity.CreateComponent(new PositionComponent { X = 0, Y = 0 });
+entity.CreateComponent(new VelocityComponent { X = 10, Y = 5 });
 
-// Tick the world in a loop
-while (true) 
-{
-    world.BeginTick();
-    world.Tick();
-    world.EndTick();
-}
+world.BeginTick();
+world.Tick();
+world.EndTick();
+
+world.Shutdown();
 ```
 
-### 9. Using Entity Matchers
-Matchers allow you to filter entities based on their component composition.
+See [docs/QUICK_START.md](docs/QUICK_START.md) for collectors, flags, matchers, and DI setup.
 
-```csharp
-// Match entities that have ALL of the specified components
-var positionOnlyMatcher = EntityMatcher.With.OfAll<PositionComponent>();
+---
 
-// Match entities that have AT LEAST ONE of the specified components
-var positionOrVelocityMatcher = EntityMatcher.With
-    .OfAny<PositionComponent>()
-    .OfAny<VelocityComponent>();
+## Why a Toolkit, Not a Framework?
 
-// Match entities that have specific components BUT NOT others
-var positionWithoutHealthMatcher = EntityMatcher.With
-    .OfAll<PositionComponent>()
-    .OfNone<HealthComponent>();
+Game logic often repeats across genres and budgets — card games, RPGs, multiplayer, indie prototypes. A monolithic framework can steer design toward “does the framework support X?” instead of “what does the game need?”
 
-// Complex matcher - entities with Position AND Velocity but WITHOUT Health
-var complexMatcher = EntityMatcher.With
-    .OfAll<PositionComponent>()
-    .OfAll<VelocityComponent>()
-    .OfNone<HealthComponent>();
+CoreECS grew from a turn-based card project that needed **predictable state** and **change tracking**, while Unity ECS handled high-throughput simulation. Unity ECS is strong on performance but rigid for state-driven workflows; CoreECS fills that gap as a **loosely coupled toolkit** you compose where it fits — simulation helper, state guardian, or standalone ECS loop.
 
-// Match entities whose mask shares at least one bit with the matcher mask
-var maskingMatcher = EntityMatcher.WithMask((ulong) EntityType.Actor);
+---
+
+## Key Concepts
+
+| Concept | Role |
+|---------|------|
+| **Entity** | Stable id grouping components (`Entity` struct over `ulong`) |
+| **Component** | Data struct (`IComponent<T>`), logic lives in systems |
+| **System** | `ISystem` — `OnCreate` / `OnTick` / `OnDestroy` |
+| **World** | Lifecycle, entities, components, systems, collectors |
+| **Matcher** | `EntityMatcher` filters by components and entity mask |
+| **Collector** | Tracks matcher matches; defers buffers until `Flush()` |
+| **InjectionProxy** | DI for system constructors (`RegisterServices`) |
+| **Tick** | `BeginTick` → `Tick(mask)` → `EndTick` |
+| **Mask** | Bit flags on entities/systems for filtered ticks and queries |
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [**Quick Start Guide**](docs/QUICK_START.md) | Full tutorial: 11 sections from world setup to complete example |
+| [**AGENTS.md**](AGENTS.md) | Build commands and contributor notes for agents/CI |
+
+---
+
+## Project Layout
+
+```
+CoreECS/
+├── ECS/          # CoreECS library (net8.0 + netstandard2.1)
+├── Test/         # NUnit tests
+├── docs/         # Guides (Quick Start, …)
+└── README.md     # This file
 ```
 
-`EntityMatcher.With` uses `ulong.MaxValue` as the matcher mask (no mask filtering). `WithMask` requires `(entity.Mask & matcher.EntityMask) != 0` before component rules are evaluated.
+---
 
-If you create a matcher without component rules (`OfAll` / `OfAny` / `OfNone`), it matches any entity that passes the mask check (and has not been destroyed).
+## License
 
-### 10. Entity Collector - Advanced Filtering and Change Tracking
-
-EntityCollector is a powerful feature that tracks entities matching specific criteria and efficiently updates when entities change. It's essential for creating state-first game logic.
-
-#### Basic Collector Usage
-
-```csharp
-// Create a collector that tracks all entities with PositionComponent
-var positionCollector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>()
-);
-
-// Process collected entities
-positionCollector.Flush(); // Call Flush() to apply any pending changes
-for (int i = 0; i < positionCollector.Collected.Count; i++)
-{
-    var entity = world.GetEntity(positionCollector.Collected[i]);
-    // Process the entity
-}
-```
-
-`IEntityCollector.Change()` is still available for backward compatibility but marked obsolete; prefer `Flush()` in new code.
-
-#### Collector Flags
-
-Collectors are **structural-change collectors**: `Collected`, `Matching`, `Clashing`, and `Changed` always reflect the last `Flush()` phase. Call `Flush()` once per frame (or phase) before reading any buffer.
-
-`EntityCollectorFlag` controls which events are **also** mirrored into `Changed`. Membership enter/leave is always recorded in `Matching` / `Clashing`; flags decide whether those (or other) events appear in `Changed` too.
-
-`EntityCollectorFlag.Default` (used when no flag is passed) configures `Changed` for the usual structural workflow:
-
-- **Structural match** — entities entering the collector (`MatchAsChange`)
-- **Structural composition** — match-relevant component add/remove while the entity stays collected (`RelatedComponentOnly`)
-- **Data revision** — match-relevant component value updates (`RevisionAsChange` + `RelatedComponentOnly`)
-- **Not included by default** — entities leaving the collector (see `Clashing`; add `ClashAsChange` to mirror departures into `Changed`)
-
-```csharp
-// Default structural-change collector
-var collector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>()
-);
-
-// Also mirror entities that leave the collector into Changed
-var clashTrackingCollector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>(),
-    EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange
-);
-
-// Changed disabled; use Matching/Clashing/Collected only
-var membershipOnlyCollector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>(),
-    EntityCollectorFlag.None
-);
-```
-
-#### Change Tracking
-
-After `Flush()`, inspect the buffers from the completed phase:
-
-```csharp
-var collector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>()
-);
-
-// Add some entities with components
-var entity1 = world.CreateEntity();
-entity1.CreateComponent<PositionComponent>();
-
-// Call Flush() to process pending changes
-collector.Flush();
-
-// Access change tracking lists
-var matchingEntities = collector.Matching;  // New entities that started matching
-var clashingEntities = collector.Clashing;  // Entities that stopped matching
-
-foreach (var entityId in matchingEntities)
-{
-    Console.WriteLine($"New matching entity: {entityId}");
-}
-
-foreach (var entityId in clashingEntities)
-{
-    Console.WriteLine($"Stopped matching entity: {entityId}");
-}
-```
-
-Flag reference:
-
-- `RevisionAsChange` — mirror component **data** revisions into `Changed` (included in `Default`).
-- `MatchAsChange` — mirror entities **entering** the collector into `Changed` (included in `Default`).
-- `ClashAsChange` — mirror entities **leaving** the collector into `Changed` (not in `Default`; `Clashing` always lists departures after `Flush()`).
-- `RelatedComponentOnly` — limit component-driven `Changed` entries to matcher-relevant types (included in `Default`).
-- `None` — do not mirror any category into `Changed`; structural membership is still available via `Matching` / `Clashing`.
-
-With `EntityCollectorFlag.Default`, treat `Changed` as the set of collected entities that need reprocessing after structural or match-relevant data updates. Entities that stop matching appear in `Clashing`, not `Changed`, unless you add `ClashAsChange`.
-
-#### Best Practices for Using Collectors
-
-1. **Always call `Flush()` before processing collected entities** to ensure the collection is up-to-date with recent changes.
-
-2. **Do NOT use foreach loops** when iterating over `Collected` - use indexed for loops instead to prevent issues with potential collection modifications during iteration:
-
-```csharp
-// CORRECT - Use indexed for loop
-for (int i = 0; i < collector.Collected.Count; i++)
-{
-    var entity = world.GetEntity(collector.Collected[i]);
-    // Process entity
-}
-
-// INCORRECT - Avoid foreach loops
-// foreach (var entityId in collector.Collected) // This can cause issues
-// {
-//     var entity = world.GetEntity(entityId);
-//     // Process entity
-// }
-```
-
-3. **Proper cleanup** - Always dispose collectors when no longer needed:
-
-```csharp
-// In system's OnDestroy method
-public void OnDestroy()
-{
-    m_collector?.Dispose();
-}
-```
-
-4. **Choose appropriate flags** based on your use case:
-   - Call `Flush()` once per frame (or phase) to publish buffered membership and change lists
-   - Use `EntityCollectorFlag.None` when systems only need `Matching` / `Clashing` / `Collected`
-   - Add `ClashAsChange` when systems must react to entities leaving the collector via `Changed`
-
-
-### 11. Complete Example
-Here's a complete example demonstrating the basic usage:
-
-```csharp
-using System;
-using CoreECS;
-using CoreECS.Defines;
-
-// Define components
-public struct PositionComponent : IComponent<PositionComponent>
-{
-    public float X;
-    public float Y;
-}
-
-public struct VelocityComponent : IComponent<VelocityComponent>
-{
-    public float X;
-    public float Y;
-}
-
-// Define system
-public class MovementSystem : ISystem
-{
-    private World m_world;
-    private IEntityCollector m_movingEntities;
-    
-    public MovementSystem(World world)
-    {
-        m_world = world;
-    }
-    
-    public void OnCreate()
-    {
-        m_movingEntities = m_world.CreateCollector(
-            EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>()
-        );
-    }
-    
-    public void OnTick(ulong tickMask)
-    {
-        m_movingEntities.Flush(); // Apply pending changes
-        for (var i = 0; i < m_movingEntities.Collected.Count; i++)
-        {
-            var entity = m_world.GetEntity(m_movingEntities.Collected[i]);
-            
-            var position = entity.GetComponent<PositionComponent>();
-            var velocity = entity.GetComponent<VelocityComponent>();
-            
-            position.RW.X += velocity.RW.X * 0.016f; // Assuming ~60 FPS
-            position.RW.Y += velocity.RW.Y * 0.016f;
-        }
-    }
-    
-    public void OnDestroy()
-    {
-        m_movingEntities?.Dispose();
-    }
-}
-
-// Usage
-class Program
-{
-    static void Main(string[] args)
-    {
-        // Create and start world
-        var world = new World();
-        world.Startup();
-        
-        // Register system
-        world.RegisterSystem<MovementSystem>();
-        
-        // Create an entity with position and velocity
-        var entity = world.CreateEntity();
-        entity.CreateComponent<PositionComponent>().RW = new PositionComponent { X = 0, Y = 0 };
-        entity.CreateComponent<VelocityComponent>().RW = new VelocityComponent { X = 10, Y = 5 };
-        
-        // Run simulation loop
-        for (int i = 0; i < 100; i++)
-        {
-            world.BeginTick();
-            world.Tick();
-            world.EndTick();
-            
-            var position = entity.GetComponent<PositionComponent>();
-            Console.WriteLine($"Frame {i}: Position = ({position.RW.X:F2}, {position.RW.Y:F2})");
-        }
-        
-        // Cleanup
-        world.Shutdown();
-    }
-}
-```
+MIT — see [LICENSE](LICENSE).
