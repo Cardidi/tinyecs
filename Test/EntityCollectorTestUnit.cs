@@ -28,10 +28,10 @@ namespace TinyECS.Test
         public void EntityCollectorFlag_Masks_RemainStable()
         {
             Assert.AreEqual(0, (int)EntityCollectorFlag.None);
-            Assert.AreEqual(1 << 2, (int)EntityCollectorFlag.RevisionAsChange);
-            Assert.AreEqual(1 << 3, (int)EntityCollectorFlag.MatchAsChange);
-            Assert.AreEqual(1 << 4, (int)EntityCollectorFlag.ClashAsChange);
-            Assert.AreEqual(1 << 6, (int)EntityCollectorFlag.RelatedComponentOnly);
+            Assert.AreEqual(1 << 0, (int)EntityCollectorFlag.RevisionAsChange);
+            Assert.AreEqual(1 << 1, (int)EntityCollectorFlag.MatchAsChange);
+            Assert.AreEqual(1 << 2, (int)EntityCollectorFlag.ClashAsChange);
+            Assert.AreEqual(1 << 3, (int)EntityCollectorFlag.RelatedComponentOnly);
             Assert.AreEqual(
                 EntityCollectorFlag.RevisionAsChange
                 | EntityCollectorFlag.MatchAsChange
