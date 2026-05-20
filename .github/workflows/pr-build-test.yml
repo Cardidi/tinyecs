@@ -1,0 +1,35 @@
+name: PR Build and Test
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+concurrency:
+  group: pr-build-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build CoreECS and run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore CoreECS.sln
+
+      - name: Build CoreECS
+        run: dotnet build CoreECS.sln --configuration Release --no-restore
+
+      - name: Run automated tests
+        run: dotnet test CoreECS.sln --configuration Release --no-build --verbosity normal
