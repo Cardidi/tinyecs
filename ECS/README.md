@@ -333,7 +333,7 @@ Collectors always defer updates to `Collected`, `Matching`, `Clashing`, and `Cha
 
 ```csharp
 // Default (used when no flag is specified):
-// ChangedOnRevision + ChangedOnMatching + ChangeMustBeRelatedComponent
+// ChangedOnRevision + MatchAsChange + ChangeMustBeRelatedComponent
 var collector = world.CreateCollector(
     EntityMatcher.With.OfAll<PositionComponent>()
 );
@@ -379,7 +379,7 @@ foreach (var entityId in clashingEntities)
 `Changed` behavior depends on collector flags:
 
 - `ChangedOnRevision`: include entities whose component data changed (default includes this).
-- `ChangedOnMatching`: include entities that newly enter the collector (default includes this).
+- `MatchAsChange`: include entities that newly enter the collector (default includes this).
 - `ChangedOnClashing`: include entities that leave the collector (disabled by default, enable explicitly when needed).
 
 With `EntityCollectorFlag.Default`, `Changed` includes revision changes and newly matching entities, but not clashing entities. All buffers are published when you call `Flush()`.

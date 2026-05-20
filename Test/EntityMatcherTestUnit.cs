@@ -424,7 +424,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.ChangedOnRevision);
+                EntityCollectorFlag.RevisionAsChange);
             
             collector.Flush();
             

@@ -161,7 +161,7 @@ Console.WriteLine($"Total components: {allComponents.Length}");
 #### RO / RW Access Notes
 
 - `RO` is read-only access and should be preferred when you only need to inspect values.
-- `RW` is writable access; modifying through `RW` marks the component as changed and can trigger collector revision tracking (`ChangedOnRevision`).
+- `RW` is writable access; modifying through `RW` marks the component as changed and can trigger collector revision tracking (`RevisionAsChange`).
 - If you only want to read in hot paths, avoid accidental writes through `RW` to prevent unnecessary change events.
 
 #### Helper Extension Methods
@@ -351,7 +351,7 @@ var lazyRemoveCollector = world.CreateCollector(
 );
 
 // Default (used when no flag is specified):
-// Lazy + LazyChange + ChangedOnRevision + ChangedOnMatching
+// Lazy + LazyChange + RevisionAsChange + ChangedOnMatching
 var lazyCollector = world.CreateCollector(
     EntityMatcher.With.OfAll<PositionComponent>()
     // EntityCollectorFlag.Default is used by default
@@ -391,7 +391,7 @@ foreach (var entityId in clashingEntities)
 
 `Changed` behavior depends on collector flags:
 
-- `ChangedOnRevision`: include entities whose component data changed (default includes this).
+- `RevisionAsChange`: include entities whose component data changed (default includes this).
 - `ChangedOnMatching`: include entities that newly enter the collector (default includes this).
 - `ChangedOnClashing`: include entities that leave the collector (disabled by default, enable explicitly when needed).
 - `LazyChange`: defer updates to `Changed` until `Flush()`; when not enabled, `Changed` updates immediately on events.
