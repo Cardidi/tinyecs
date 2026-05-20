@@ -43,19 +43,18 @@ This repository follows [Conventional Commits](https://www.conventionalcommits.o
 
 | Field | Rules |
 |-------|--------|
-| `type` | One of: `feat`, `fix`, `refactor`, `doc`, `test`, `ci`, `chore` |
-| `scope` | Area of change; common values: `core`, `test`, `doc`, `proj`, `extension`, `utils`, `nuget`, `github_actions` |
+| `type` | One of: `feat`, `fix`, `refactor`, `doc`, `ci`, `chore` |
+| `scope` | Area of change; common values: `core`, `test`, `proj`, `extension`, `utils`, `nuget`, `github_actions` |
 | Description | Imperative, concise summary of *what* changed (e.g. `add LazyChange flags`, `fix empty matcher relevance`) |
 
 **Type usage (from project history):**
 
 | Type | When to use |
 |------|-------------|
-| `feat` | New behavior or API |
-| `fix` | Bug fix or incorrect behavior correction |
-| `refactor` | Internal restructuring without intended behavior change |
-| `doc` | Documentation or comments only |
-| `test` | Tests only (including benchmarks) |
+| `feat` | New behavior or API; also test-only changes that cover new behavior (use scope `test`) |
+| `fix` | Bug fix or incorrect behavior correction; also test fixes or corrected test expectations (use scope `test`) |
+| `refactor` | Internal restructuring without intended behavior change; also test refactors with no intended behavior change (use scope `test`) |
+| `doc` | Documentation or comments only (use scope `proj` or `core`, not `doc`) |
 | `ci` | CI/CD workflows |
 | `chore` | Maintenance, build tooling, packaging, or project files that do not fit the above |
 
@@ -80,6 +79,7 @@ Co-authored-by: Name <email@example.com>
 
 - `feat(core): add ChangeComponent flag to track only match-relevant component changes`
 - `fix(core): rename ChangeComponent flag to ChangeMustBeRelatedComponent`
-- `test(core): add unit tests for ChangeComponent filtering and LazyChange deduplication across flushes`
+- `feat(test): add unit tests for ChangeComponent filtering and LazyChange deduplication across flushes`
+- `doc(proj): update README`
 - `ci: add GitHub Actions workflow for PR build and test`
 - `refactor(proj): rename to CoreECS (TinyECS has been occupied in NuGet)`
