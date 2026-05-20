@@ -24,7 +24,7 @@ Those are really common concepts in ECS, and you can find them in most ECS imple
 - **World**: Container that manages entities, components, and systems
 - **Matcher**: Defines criteria for selecting entities based on their components
 - **Collector**: Tracks entities that match specific criteria and efficiently updates when entities change
-- **Injector**: Resolves dependencies and injects them into systems, components, and collectors
+- **InjectionProxy**: Resolves constructor dependencies for systems (via `RegisterServices` and `IInjectionProxy`)
 - **Tick**: A single iteration of the ECS framework, where systems are processed in a defined order.
 - **Mask**: A bitwise flag that is used to filter entities.
 
@@ -46,10 +46,12 @@ Before calling `Startup()`, you should **NOT** do any following operations:
 - Add components to entities
 - Register systems
 
-But you can do those operations before World call `Startup()`:
+Before `Startup()`, you can prepare a custom world subclass:
 
-- Configure Injector by `World.Injector`
-- Inherit `World` class to add custom logic like additional ECS managers or do something while world is build, start, tick and shutdown.
+- Override `RegisterServices` to register services into the DI container (built during the first `Startup()`)
+- Override lifecycle hooks (`OnRegisterManager`, `OnConstruct`, `OnStart`, tick/shutdown hooks) or register additional managers
+
+After `Startup()`, use `World.InjectionProxy` to resolve registered services. It is `null` until the first `Startup()` completes.
 
 Be aware that the world is not thread-safe. You should only access the world from the main thread.
 
@@ -136,7 +138,7 @@ entity.CreateComponent<HealthComponent>().RW.Value = 100;
 // Create component with initial value (recommended for setting initial data)
 var positionRef = entity.CreateComponent(new PositionComponent { X = 10, Y = 20 });
 
-// Not recommended: Direct assignment ignores component's `OnCreate` callback
+// Not recommended: OnCreate runs with default(T) before you overwrite via RW assignment
 var positionRef2 = entity.CreateComponent<PositionComponent>();
 positionRef2.RW = new PositionComponent { X = 10, Y = 20 };
 ```
@@ -198,7 +200,7 @@ entity.DestroyComponent<HealthComponent>();
 ```
 
 ### 7. Defining Systems
-Systems contain the logic that operates on entities with specific component combinations. If you want a system to access world, managers or anything can be get from DI container, just put them on constructor.
+Systems contain the logic that operates on entities with specific component combinations. Register dependencies in `RegisterServices`, then request them through constructor parameters when the world instantiates the system via `IInjectionProxy`.
 
 If you need to grouping system and wish those group can being ticked one by one, the best way is to add mask on system to filter which systems it should process. You can tick those system when you call `World.Tick(ulong mask)`.
 
@@ -250,10 +252,8 @@ public class MovementSystem : ISystem
 }
 ```
 
-For further details, please refer to EntityCollector. 
-
 ### 8. Managing Systems
-Register and manage systems within the world. The execution order of system is matched with the order you register system (First In First Tick). You should not changing system registration between `World.BeginTick()` and `World.EndTick()`. If you do that so, system will be added, but world modification will defer until next `World.BeginTick()`.
+Register and manage systems within the world. The execution order of system is matched with the order you register system (First In First Tick). Avoid changing system registration between `World.BeginTick()` and `World.EndTick()`. If you register or unregister a system during a tick, the change is queued and applied at the next `BeginTick()` (in `TeardownSystems`). Entity and component operations are not deferred.
 
 ```csharp
 // Create a world instance
@@ -298,11 +298,13 @@ var complexMatcher = EntityMatcher.With
     .OfAll<VelocityComponent>()
     .OfNone<HealthComponent>();
 
-// Match entities with specific mask
+// Match entities whose mask shares at least one bit with the matcher mask
 var maskingMatcher = EntityMatcher.WithMask((ulong) EntityType.Actor);
 ```
 
-If you create a matcher without any modification like entity mask or component rule, it will defaults to match any entity.
+`EntityMatcher.With` uses `ulong.MaxValue` as the matcher mask (no mask filtering). `WithMask` requires `(entity.Mask & matcher.EntityMask) != 0` before component rules are evaluated.
+
+If you create a matcher without component rules (`OfAll` / `OfAny` / `OfNone`), it matches any entity that passes the mask check (and has not been destroyed).
 
 ### 10. Entity Collector - Advanced Filtering and Change Tracking
 
