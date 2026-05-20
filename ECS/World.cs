@@ -4,6 +4,7 @@ using System.ComponentModel;
 using CoreECS.Defines;
 using CoreECS.Managers;
 using CoreECS.Utils;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CoreECS
 {
@@ -14,10 +15,41 @@ namespace CoreECS
     /// </summary>
     public class World : MinimalWorld
     {
+        /// <summary>
+        /// Optional third-party <see cref="IInjectionProxyFactory"/>; when null, <see cref="Injector"/> is used.
+        /// </summary>
+        private IInjectionProxyFactory m_injectionProxyFactory;
+
+        /// <summary>
+        /// Uses a third-party injection proxy factory instead of the built-in <see cref="Injector"/> strategy.
+        /// Must be called before <see cref="MinimalWorld.Startup"/>.
+        /// </summary>
+        public void UseInjectionProxyFactory(IInjectionProxyFactory factory)
+        {
+            Assertion.ArgumentNotNull(factory);
+            Assertion.IsFalse(Ready, "Cannot change injection factory after startup.");
+            m_injectionProxyFactory = factory;
+        }
+
         /// <inheritdoc />
         protected override IInjectionProxyFactory GetInjectionProxyFactory()
         {
-            return new CoreInjectionProxyFactory();
+            return m_injectionProxyFactory ?? new InjectorInjectionProxyFactory(Injection);
+        }
+
+        /// <inheritdoc />
+        protected internal override void RegisterRequiredServices(IServiceCollection services)
+        {
+            if (m_injectionProxyFactory != null)
+            {
+                base.RegisterRequiredServices(services);
+                return;
+            }
+
+            Assertion.ArgumentNotNull(services);
+            services.AddSingleton<IWorld>(this);
+            services.AddSingleton(GetType(), this);
+            services.AddSingleton(Injection);
         }
 
         /// <summary>
@@ -46,9 +78,9 @@ namespace CoreECS
         /// <param name="register">The manager register interface</param>
         protected override void OnRegisterManager(IManagerRegister register)
         {
-            register.RegisterManager<EntityMatchManager>();
-            register.RegisterManager<EntityManager>();
             register.RegisterManager<ComponentManager>();
+            register.RegisterManager<EntityManager>();
+            register.RegisterManager<EntityMatchManager>();
             register.RegisterManager<SystemManager>();
         }
 
