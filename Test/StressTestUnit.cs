@@ -140,8 +140,9 @@ namespace TinyECS.Test
                 
                 // Update component data
                 var posRef = randomEntity.GetComponent<PositionComponent>();
-                posRef.RW.X = i % 100;
-                posRef.RW.Y = i % 100;
+                ref var position = ref posRef.RW;
+                position.X = i % 100;
+                position.Y = i % 100;
             }
             
             stopwatch.Stop();
@@ -809,8 +810,10 @@ namespace TinyECS.Test
                         var positionComp = entity.GetComponent<PositionComponent>();
                         var velocityComp = entity.GetComponent<VelocityComponent>();
                         
-                        positionComp.RW.X += velocityComp.RO.X;
-                        positionComp.RW.Y += velocityComp.RO.Y;
+                        ref readonly var velocity = ref velocityComp.RO;
+                        ref var position = ref positionComp.RW;
+                        position.X += velocity.X;
+                        position.Y += velocity.Y;
                     }
                 }
             }
@@ -856,8 +859,11 @@ namespace TinyECS.Test
                         var velocity = entity.GetComponent<VelocityComponent>();
                         var speed = entity.GetComponent<SpeedComponent>();
                         
-                        position.RW.X += velocity.RO.X * speed.RO.Multiplier;
-                        position.RW.Y += velocity.RO.Y * speed.RO.Multiplier;
+                        ref readonly var velocityData = ref velocity.RO;
+                        ref readonly var speedData = ref speed.RO;
+                        ref var writablePosition = ref position.RW;
+                        writablePosition.X += velocityData.X * speedData.Multiplier;
+                        writablePosition.Y += velocityData.Y * speedData.Multiplier;
                         
                         _processCount++;
                     }
@@ -943,10 +949,11 @@ namespace TinyECS.Test
                     {
                         var entity = m_world.GetEntity(m_collector.Collected[i]);
                         var health = entity.GetComponent<HealthComponent>();
-                        health.RW.Value += 0.05f;
+                        ref var writableHealth = ref health.RW;
+                        writableHealth.Value += 0.05f;
                         
-                        if (health.RW.Value > 100.0f)
-                            health.RW.Value = 100.0f;
+                        if (writableHealth.Value > 100.0f)
+                            writableHealth.Value = 100.0f;
                     }
                 }
             }
