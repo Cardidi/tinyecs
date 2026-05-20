@@ -161,7 +161,7 @@ Console.WriteLine($"Total components: {allComponents.Length}");
 #### RO / RW Access Notes
 
 - `RO` is read-only access and should be preferred when you only need to inspect values.
-- `RW` is writable access; modifying through `RW` marks the component as changed and can trigger collector revision tracking (`ChangedOnRevision`).
+- `RW` is writable access; modifying through `RW` marks the component as changed and can trigger collector revision tracking (`RevisionAsChange`).
 - If you only want to read in hot paths, avoid accidental writes through `RW` to prevent unnecessary change events.
 
 #### Helper Extension Methods
@@ -329,25 +329,39 @@ for (int i = 0; i < positionCollector.Collected.Count; i++)
 
 #### Collector Flags
 
-Collectors always defer updates to `Collected`, `Matching`, `Clashing`, and `Changed` until `Flush()` is called. Use flags to control which change categories appear in `Changed`. The default flag is `EntityCollectorFlag.Default`:
+Collectors are **structural-change collectors**: `Collected`, `Matching`, `Clashing`, and `Changed` always reflect the last `Flush()` phase. Call `Flush()` once per frame (or phase) before reading any buffer.
+
+`EntityCollectorFlag` controls which events are **also** mirrored into `Changed`. Membership enter/leave is always recorded in `Matching` / `Clashing`; flags decide whether those (or other) events appear in `Changed` too.
+
+`EntityCollectorFlag.Default` (used when no flag is passed) configures `Changed` for the usual structural workflow:
+
+- **Structural match** — entities entering the collector (`MatchAsChange`)
+- **Structural composition** — match-relevant component add/remove while the entity stays collected (`RelatedComponentOnly`)
+- **Data revision** — match-relevant component value updates (`RevisionAsChange` + `RelatedComponentOnly`)
+- **Not included by default** — entities leaving the collector (see `Clashing`; add `ClashAsChange` to mirror departures into `Changed`)
 
 ```csharp
-// Default (used when no flag is specified):
-// ChangedOnRevision + MatchAsChange + ChangeMustBeRelatedComponent
+// Default structural-change collector
 var collector = world.CreateCollector(
     EntityMatcher.With.OfAll<PositionComponent>()
 );
 
-// Include entities that leave the collector in Changed
+// Also mirror entities that leave the collector into Changed
 var clashTrackingCollector = world.CreateCollector(
     EntityMatcher.With.OfAll<PositionComponent>(),
-    EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing
+    EntityCollectorFlag.Default | EntityCollectorFlag.ClashAsChange
+);
+
+// Changed disabled; use Matching/Clashing/Collected only
+var membershipOnlyCollector = world.CreateCollector(
+    EntityMatcher.With.OfAll<PositionComponent>(),
+    EntityCollectorFlag.None
 );
 ```
 
 #### Change Tracking
 
-Collectors track which entities have changed since the last `Flush()` call:
+After `Flush()`, inspect the buffers from the completed phase:
 
 ```csharp
 var collector = world.CreateCollector(
@@ -376,13 +390,15 @@ foreach (var entityId in clashingEntities)
 }
 ```
 
-`Changed` behavior depends on collector flags:
+Flag reference:
 
-- `ChangedOnRevision`: include entities whose component data changed (default includes this).
-- `MatchAsChange`: include entities that newly enter the collector (default includes this).
-- `ChangedOnClashing`: include entities that leave the collector (disabled by default, enable explicitly when needed).
+- `RevisionAsChange` — mirror component **data** revisions into `Changed` (included in `Default`).
+- `MatchAsChange` — mirror entities **entering** the collector into `Changed` (included in `Default`).
+- `ClashAsChange` — mirror entities **leaving** the collector into `Changed` (not in `Default`; `Clashing` always lists departures after `Flush()`).
+- `RelatedComponentOnly` — limit component-driven `Changed` entries to matcher-relevant types (included in `Default`).
+- `None` — do not mirror any category into `Changed`; structural membership is still available via `Matching` / `Clashing`.
 
-With `EntityCollectorFlag.Default`, `Changed` includes revision changes and newly matching entities, but not clashing entities. All buffers are published when you call `Flush()`.
+With `EntityCollectorFlag.Default`, treat `Changed` as the set of collected entities that need reprocessing after structural or match-relevant data updates. Entities that stop matching appear in `Clashing`, not `Changed`, unless you add `ClashAsChange`.
 
 #### Best Practices for Using Collectors
 
@@ -418,7 +434,7 @@ public void OnDestroy()
 
 4. **Choose appropriate flags** based on your use case:
    - Call `Flush()` once per frame (or phase) to publish buffered membership and change lists
-   - Enable `ChangedOnClashing` when systems need to react to entities leaving the collector
+   - Enable `ClashAsChange` when systems need to react to entities leaving the collector
 
 
 ### 11. Complete Example
