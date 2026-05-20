@@ -25,13 +25,6 @@ CoreECS is a pure C# library (no servers, no databases, no Docker). It consists 
 | Test | `dotnet test --verbosity normal` |
 | Build Release | `dotnet build --configuration Release` |
 
-### Known issues
-
-- Two pre-existing test failures in `EntityCollectorTestUnit`:
-  - `EntityCollector_ChangeComponent_BounceMembership_BetweenFlushes_LeavesConsistentState`
-  - `EntityCollector_NonLazy_RealtimeMatchClash`
-- These are codebase issues, not environment issues. 272/274 tests pass.
-
 ### Gotchas
 
 - The .NET SDK is installed to `$HOME/.dotnet`, not `/usr/share/dotnet`. The update script ensures `DOTNET_ROOT` and `PATH` are set in `~/.bashrc`.
