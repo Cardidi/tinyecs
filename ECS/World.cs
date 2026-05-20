@@ -21,7 +21,7 @@ namespace CoreECS
         private IInjectionProxyFactory m_injectionProxyFactory;
 
         /// <summary>
-        /// Uses a third-party injection proxy factory instead of the built-in <see cref="Injector"/> strategy.
+        /// Uses a third-party injection proxy factory instead of <see cref="BuiltinInjectionProxyFactory"/>.
         /// Must be called before <see cref="MinimalWorld.Startup"/>.
         /// </summary>
         public void UseInjectionProxyFactory(IInjectionProxyFactory factory)
@@ -34,7 +34,7 @@ namespace CoreECS
         /// <inheritdoc />
         protected override IInjectionProxyFactory GetInjectionProxyFactory()
         {
-            return m_injectionProxyFactory ?? new InjectorInjectionProxyFactory(Injection);
+            return m_injectionProxyFactory ?? new BuiltinInjectionProxyFactory(Injection);
         }
 
         /// <inheritdoc />
