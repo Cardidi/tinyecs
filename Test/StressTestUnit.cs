@@ -175,11 +175,11 @@ namespace TinyECS.Test
             var matcher4 = EntityMatcher.With.OfAll<HealthComponent>();
             var matcher5 = EntityMatcher.With.OfAll<PositionComponent>().OfAny<VelocityComponent>().OfAny<HealthComponent>();
             
-            collectors.Add(world.CreateCollector(matcher1));
-            collectors.Add(world.CreateCollector(matcher2));
-            collectors.Add(world.CreateCollector(matcher3));
-            collectors.Add(world.CreateCollector(matcher4));
-            collectors.Add(world.CreateCollector(matcher5));
+            collectors.Add(world.CreateCollector(matcher1, EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(matcher2, EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(matcher3, EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(matcher4, EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(matcher5, EntityCollectorFlag.None));
             
             // Create entities
             const int entityCount = 1000;
@@ -373,16 +373,16 @@ namespace TinyECS.Test
             // Create many collectors with complex matchers
             var collectors = new List<IEntityCollector>();
             
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>().OfAll<HealthComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<VelocityComponent>().OfAll<HealthComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>().OfAll<HealthComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<HealthComponent>().OfNone<DamageComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<SpeedComponent>().OfAll<VelocityComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<DefenseComponent>().OfAll<HealthComponent>()));
-            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<DamageComponent>().OfAll<HealthComponent>()));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>().OfAll<HealthComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<VelocityComponent>().OfAll<HealthComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>().OfAll<HealthComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<HealthComponent>().OfNone<DamageComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<SpeedComponent>().OfAll<VelocityComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<DefenseComponent>().OfAll<HealthComponent>(), EntityCollectorFlag.None));
+            collectors.Add(world.CreateCollector(EntityMatcher.With.OfAll<DamageComponent>().OfAll<HealthComponent>(), EntityCollectorFlag.None));
             
             // Create a large number of entities with varied components
             const int entityCount = 10000;
@@ -793,7 +793,8 @@ namespace TinyECS.Test
             public void OnCreate()
             {
                 m_movementCollector = m_world?.CreateCollector(
-                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>()
+                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>(),
+                    EntityCollectorFlag.None
                 );
             }
             
@@ -843,7 +844,8 @@ namespace TinyECS.Test
             public void OnCreate()
             {
                 m_collector = m_world?.CreateCollector(
-                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>().OfAll<SpeedComponent>()
+                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<VelocityComponent>().OfAll<SpeedComponent>(),
+                    EntityCollectorFlag.None
                 );
             }
             
@@ -898,7 +900,8 @@ namespace TinyECS.Test
             public void OnCreate()
             {
                 m_collector = m_world?.CreateCollector(
-                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<DamageComponent>()
+                    EntityMatcher.With.OfAll<PositionComponent>().OfAll<DamageComponent>(),
+                    EntityCollectorFlag.None
                 );
             }
             
@@ -936,7 +939,8 @@ namespace TinyECS.Test
             public void OnCreate()
             {
                 m_collector = m_world?.CreateCollector(
-                    EntityMatcher.With.OfAll<HealthComponent>()
+                    EntityMatcher.With.OfAll<HealthComponent>(),
+                    EntityCollectorFlag.None
                 );
             }
             
