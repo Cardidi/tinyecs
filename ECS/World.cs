@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using CoreECS.Defines;
 using CoreECS.Managers;
 using CoreECS.Utils;
@@ -15,43 +14,6 @@ namespace CoreECS
     /// </summary>
     public class World : MinimalWorld
     {
-        /// <summary>
-        /// Optional third-party <see cref="IInjectionProxyFactory"/>; when null, <see cref="Injector"/> is used.
-        /// </summary>
-        private IInjectionProxyFactory m_injectionProxyFactory;
-
-        /// <summary>
-        /// Uses a third-party injection proxy factory instead of <see cref="BuiltinInjectionProxyFactory"/>.
-        /// Must be called before <see cref="MinimalWorld.Startup"/>.
-        /// </summary>
-        public void UseInjectionProxyFactory(IInjectionProxyFactory factory)
-        {
-            Assertion.ArgumentNotNull(factory);
-            Assertion.IsFalse(Ready, "Cannot change injection factory after startup.");
-            m_injectionProxyFactory = factory;
-        }
-
-        /// <inheritdoc />
-        protected override IInjectionProxyFactory GetInjectionProxyFactory()
-        {
-            return m_injectionProxyFactory ?? new BuiltinInjectionProxyFactory(Injection);
-        }
-
-        /// <inheritdoc />
-        protected internal override void RegisterRequiredServices(IServiceCollection services)
-        {
-            if (m_injectionProxyFactory != null)
-            {
-                base.RegisterRequiredServices(services);
-                return;
-            }
-
-            Assertion.ArgumentNotNull(services);
-            services.AddSingleton<IWorld>(this);
-            services.AddSingleton(GetType(), this);
-            services.AddSingleton(Injection);
-        }
-
         /// <summary>
         /// Gets the entity match manager responsible for creating entity collectors.
         /// </summary>
@@ -71,7 +33,12 @@ namespace CoreECS
         /// Gets the system manager responsible for managing and executing systems.
         /// </summary>
         protected SystemManager System { get; private set; }
-        
+
+        protected override IInjectionProxyFactory GetInjectionProxyFactory()
+        {
+            return BuiltinInjectionProxyFactory.Instance;
+        }
+
         /// <summary>
         /// Registers the core managers required for the ECS system.
         /// </summary>
@@ -83,6 +50,13 @@ namespace CoreECS
             register.RegisterManager<EntityMatchManager>();
             register.RegisterManager<SystemManager>();
         }
+
+        /// <summary>
+        /// Registers additional services after <see cref="OnRegisterManager"/>.
+        /// </summary>
+        /// <param name="services">The service collection</param>
+        protected override void RegisterServices(IServiceCollection services)
+        {}
 
         /// <summary>
         /// Called after all managers have been constructed.

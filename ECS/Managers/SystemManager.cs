@@ -98,11 +98,6 @@ namespace CoreECS.Managers
         private readonly IInjectionProxy m_injectionProxy;
 
         /// <summary>
-        /// Runtime instance registry (island) for post-startup registrations.
-        /// </summary>
-        private readonly Injector m_runtimeInjection;
-
-        /// <summary>
         /// Indicates whether the manager has been initialized.
         /// </summary>
         private bool m_init = false;
@@ -182,10 +177,7 @@ namespace CoreECS.Managers
             Assertion.IsParentTypeTo<ISystem>(systemType);
             Assertion.IsFalse(m_systemTransformer.ContainsKey(systemType));
             
-            return SystemActivation.Activate(
-                m_injectionProxy.ServiceProvider,
-                m_runtimeInjection,
-                systemType);
+            return (ISystem) m_injectionProxy.CreateObject(systemType);
         }
 
         /// <summary>
@@ -358,12 +350,10 @@ namespace CoreECS.Managers
         /// </summary>
         /// <param name="world">The world this manager belongs to</param>
         /// <param name="injectionProxy">Injection proxy for constructor dependency resolution</param>
-        /// <param name="runtimeInjection">Runtime instance registry for post-startup service registration</param>
-        public SystemManager(IWorld world, IInjectionProxy injectionProxy, Injector runtimeInjection)
+        public SystemManager(IWorld world, IInjectionProxy injectionProxy)
         {
             World = world;
             m_injectionProxy = injectionProxy;
-            m_runtimeInjection = runtimeInjection;
         }
     }
 }
