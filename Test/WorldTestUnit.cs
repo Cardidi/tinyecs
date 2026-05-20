@@ -620,12 +620,17 @@ namespace TinyECS.Test
 
             public T CreateObject<T>()
             {
-                return (T)CreateObject(typeof(T));
+                return ActivatorUtilities.CreateInstance<T>(ServiceProvider);
             }
         }
 
         private class TestInjectionProxyFactory : IInjectionProxyFactory
         {
+            private sealed class ProxyWarper
+            {
+                public TestInjectionProxy Proxy;
+            }
+        
             public IServiceCollection CreateServiceCollection()
             {
                 return new ServiceCollection();
@@ -633,11 +638,11 @@ namespace TinyECS.Test
 
             public IInjectionProxy CreateProxy(IServiceCollection collection)
             {
-                IInjectionProxy proxy = null;
-                collection.AddSingleton<IInjectionProxy>(_ => proxy);
-                var provider = collection.BuildServiceProvider();
-                proxy = new TestInjectionProxy(provider);
-                return proxy;
+                var warper = new ProxyWarper();
+                collection.AddSingleton(warper);
+                collection.AddSingleton<IInjectionProxy>(p => p.GetService<ProxyWarper>()!.Proxy);
+            
+                return warper.Proxy = new TestInjectionProxy(collection.BuildServiceProvider());
             }
         }
 

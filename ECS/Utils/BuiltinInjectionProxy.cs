@@ -28,6 +28,11 @@ namespace CoreECS
     {
         public static IInjectionProxyFactory Instance = new BuiltinInjectionProxyFactory();
         
+        private sealed class ProxyWarper
+        {
+            public BuiltinInjectionProxy Proxy;
+        }
+        
         public IServiceCollection CreateServiceCollection()
         {
             return new ServiceCollection();
@@ -35,11 +40,11 @@ namespace CoreECS
 
         public IInjectionProxy CreateProxy(IServiceCollection collection)
         {
-            IInjectionProxy proxy = null;
-            collection.AddSingleton<IInjectionProxy>(_ => proxy);
-            var provider = collection.BuildServiceProvider();
-            proxy = new BuiltinInjectionProxy(provider);
-            return proxy;
+            var warper = new ProxyWarper();
+            collection.AddSingleton(warper);
+            collection.AddSingleton<IInjectionProxy>(p => p.GetService<ProxyWarper>()!.Proxy);
+            
+            return warper.Proxy = new BuiltinInjectionProxy(collection.BuildServiceProvider());
         }
     }
 }

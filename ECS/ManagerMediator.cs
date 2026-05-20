@@ -213,7 +213,7 @@ namespace CoreECS
 
                     try
                     {
-                        var manager = (IWorldManager)m_injectionProxy.CreateObject(implementationType);
+                        var manager = (IWorldManager) m_injectionProxy.ServiceProvider.GetService(implementationType);
 
                         if (interfaceType != implementationType) built.Add(interfaceType, manager);
                         built.Add(implementationType, manager);
