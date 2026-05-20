@@ -149,7 +149,7 @@ namespace TinyECS.Test
             var entity = _world.CreateEntity();
             var collector = _world.CreateCollector(
                 EntityMatcher.With.OfAll<PositionComponent>(),
-                EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing);
+                EntityCollectorFlag.None);
             var beforeChange = new CollectorSnapshot(collector);
 
             entity.CreateComponent<PositionComponent>();
@@ -199,7 +199,7 @@ namespace TinyECS.Test
 
             collector.Flush();
 
-            AssertEmpty(collector.Matching);
+            AssertOnly(collector.Matching, entity.EntityId);
             AssertEmpty(collector.Clashing);
             AssertOnly(collector.Collected, entity.EntityId);
             AssertOnly(collector.Changed, entity.EntityId);
