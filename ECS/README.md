@@ -329,32 +329,19 @@ for (int i = 0; i < positionCollector.Collected.Count; i++)
 
 #### Collector Flags
 
-Collectors support different behaviors through flags. The default flag is `EntityCollectorFlag.Default`:
+Collectors always defer updates to `Collected`, `Matching`, `Clashing`, and `Changed` until `Flush()` is called. Use flags to control which change categories appear in `Changed`. The default flag is `EntityCollectorFlag.Default`:
 
 ```csharp
-// None - entities are immediately added/removed from Collected
-var immediateCollector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>(),
-    EntityCollectorFlag.None
-);
-
-// LazyAdd - newly matching entities won't appear in Collected until Flush() is called
-var lazyAddCollector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>(),
-    EntityCollectorFlag.LazyAdd
-);
-
-// LazyRemove - entities won't be removed from Collected until Flush() is called
-var lazyRemoveCollector = world.CreateCollector(
-    EntityMatcher.With.OfAll<PositionComponent>(),
-    EntityCollectorFlag.LazyRemove
-);
-
 // Default (used when no flag is specified):
-// Lazy + ChangedOnRevision + ChangedOnMatching
-var lazyCollector = world.CreateCollector(
+// ChangedOnRevision + ChangedOnMatching + ChangeMustBeRelatedComponent
+var collector = world.CreateCollector(
     EntityMatcher.With.OfAll<PositionComponent>()
-    // EntityCollectorFlag.Default is used by default
+);
+
+// Include entities that leave the collector in Changed
+var clashTrackingCollector = world.CreateCollector(
+    EntityMatcher.With.OfAll<PositionComponent>(),
+    EntityCollectorFlag.Default | EntityCollectorFlag.ChangedOnClashing
 );
 ```
 
@@ -395,7 +382,7 @@ foreach (var entityId in clashingEntities)
 - `ChangedOnMatching`: include entities that newly enter the collector (default includes this).
 - `ChangedOnClashing`: include entities that leave the collector (disabled by default, enable explicitly when needed).
 
-With `EntityCollectorFlag.Default`, `Changed` includes revision changes and newly matching entities, but not clashing entities.
+With `EntityCollectorFlag.Default`, `Changed` includes revision changes and newly matching entities, but not clashing entities. All buffers are published when you call `Flush()`.
 
 #### Best Practices for Using Collectors
 
@@ -430,8 +417,8 @@ public void OnDestroy()
 ```
 
 4. **Choose appropriate flags** based on your use case:
-   - Use `Lazy` flag when you want to process all changes at once in a predictable manner
-   - Use `None` flag when you need immediate updates to the collection
+   - Call `Flush()` once per frame (or phase) to publish buffered membership and change lists
+   - Enable `ChangedOnClashing` when systems need to react to entities leaving the collector
 
 
 ### 11. Complete Example

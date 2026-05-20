@@ -100,21 +100,6 @@ namespace CoreECS.Managers
             public bool Destroyed { get; private set; } = false;
 
             /// <summary>
-            /// Gets a value indicating whether matching entities should be deferred until <see cref="Flush"/>.
-            /// </summary>
-            public readonly bool HasLazyAdd;
-
-            /// <summary>
-            /// Gets a value indicating whether removals should be deferred until <see cref="Flush"/>.
-            /// </summary>
-            public readonly bool HasLazyRemove;
-
-            /// <summary>
-            /// Gets a value indicating whether changed entities should be deferred until <see cref="Flush"/>.
-            /// </summary>
-            public readonly bool HasLazyChange;
-
-            /// <summary>
             /// Gets a value indicating whether revision-only updates should appear in the changed buffer.
             /// </summary>
             public readonly bool TrackRevisionChanged;
@@ -140,38 +125,19 @@ namespace CoreECS.Managers
             /// </summary>
             public void Flush()
             {
-                if (HasLazyChange)
-                {
-                    // Swap both the ordered buffers and their membership indexes together,
-                    // otherwise the hash sets would describe the wrong side of the double buffer.
-                    (Buffers[1], Buffers[2], Buffers[3], Buffers[4], Buffers[5], Buffers[6]) =
-                        (Buffers[4], Buffers[5], Buffers[6], Buffers[1], Buffers[2], Buffers[3]);
-                    (BufferSets[1], BufferSets[2], BufferSets[3], BufferSets[4], BufferSets[5], BufferSets[6]) =
-                        (BufferSets[4], BufferSets[5], BufferSets[6], BufferSets[1], BufferSets[2], BufferSets[3]);
-                }
-                else
-                {
-                    // Matching and clashing are always flush-based summaries,
-                    // but Changed is realtime when LazyChange is disabled.
-                    (Buffers[1], Buffers[2], Buffers[4], Buffers[5]) =
-                        (Buffers[4], Buffers[5], Buffers[1], Buffers[2]);
-                    (BufferSets[1], BufferSets[2], BufferSets[4], BufferSets[5]) =
-                        (BufferSets[4], BufferSets[5], BufferSets[1], BufferSets[2]);
-                }
+                // Swap both the ordered buffers and their membership indexes together,
+                // otherwise the hash sets would describe the wrong side of the double buffer.
+                (Buffers[1], Buffers[2], Buffers[3], Buffers[4], Buffers[5], Buffers[6]) =
+                    (Buffers[4], Buffers[5], Buffers[6], Buffers[1], Buffers[2], Buffers[3]);
+                (BufferSets[1], BufferSets[2], BufferSets[3], BufferSets[4], BufferSets[5], BufferSets[6]) =
+                    (BufferSets[4], BufferSets[5], BufferSets[6], BufferSets[1], BufferSets[2], BufferSets[3]);
                 
                 // Clear previous change buffers
                 ClearBuffer(CHANGE_MATCHING_BUFFER_INDEX);
                 ClearBuffer(CHANGE_CLASHING_BUFFER_INDEX);
                 ClearBuffer(CHANGE_CHANGED_BUFFER_INDEX);
-                if (!HasLazyChange)
-                {
-                    // Start a fresh phase for realtime changed tracking.
-                    ClearBuffer(CHANGED_BUFFER_INDEX);
-                }
                 
                 // Copy data from back to front
-                var processRemove = HasLazyRemove;
-                var processAdd = HasLazyAdd;
                 var collected = Buffers[COLLECTED_BUFFER_INDEX];
                 var collectedSet = BufferSets[COLLECTED_BUFFER_INDEX];
                 var changedMatch = Buffers[MATCHING_BUFFER_INDEX];
@@ -181,7 +147,7 @@ namespace CoreECS.Managers
                 // Must do a removal at the end of match and start of change
                 var newLength = collected.Count;
                 
-                if (processRemove && changedClash.Count > 0)
+                if (changedClash.Count > 0)
                 {
                     
                     // Phantom entities are entities that are in clashing buffer but not in collected buffer
@@ -223,7 +189,7 @@ namespace CoreECS.Managers
                 }
 
                 // Update back buffer to ensure alignment with front buffer
-                if (processAdd && changedMatch.Count > 0)
+                if (changedMatch.Count > 0)
                 {
                     var startAt = newLength;
                     var appended = 0;
@@ -292,9 +258,6 @@ namespace CoreECS.Managers
             {
                 Matcher = matcher;
                 Flag = flag;
-                HasLazyAdd = (flag & EntityCollectorFlag.LazyAdd) > 0;
-                HasLazyRemove = (flag & EntityCollectorFlag.LazyRemove) > 0;
-                HasLazyChange = (flag & EntityCollectorFlag.LazyChange) > 0;
                 TrackRevisionChanged = (flag & EntityCollectorFlag.ChangedOnRevision) > 0;
                 TrackMatchChanged = (flag & EntityCollectorFlag.ChangedOnMatching) > 0;
                 TrackClashChanged = (flag & EntityCollectorFlag.ChangedOnClashing) > 0;
@@ -337,8 +300,7 @@ namespace CoreECS.Managers
             /// <param name="entityId">Entity identifier to mark as changed.</param>
             public void MarkChanged(ulong entityId)
             {
-                var targetBuffer = HasLazyChange ? CHANGE_CHANGED_BUFFER_INDEX : CHANGED_BUFFER_INDEX;
-                AddUniqueToBuffer(targetBuffer, entityId);
+                AddUniqueToBuffer(CHANGE_CHANGED_BUFFER_INDEX, entityId);
             }
 
             /// <summary>
@@ -477,17 +439,14 @@ namespace CoreECS.Managers
             // Quick-pass filter
             if ((matcher.EntityMask & entityGraph.Mask) == 0) return;
             
-            // Config
-            var dontAdd = collector.HasLazyAdd;
-            var dontRemove = collector.HasLazyRemove;
             var entityId = entityGraph.EntityId;
             
-            // LazyAdd can make an entity "already collected" before it reaches Collected,
-            // while LazyRemove can keep it in Collected even after it is scheduled to leave.
+            // Pending match/clash buffers can make an entity "already collected" before it
+            // reaches Collected, or keep it in Collected after it is scheduled to leave.
             var alreadyCollected = !init &&
                 (collector.ContainsInBuffer(COLLECTED_BUFFER_INDEX, entityId) ||
-                 (dontAdd && collector.ContainsInBuffer(CHANGE_MATCHING_BUFFER_INDEX, entityId))) &&
-                !(dontRemove && collector.ContainsInBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId));
+                 collector.ContainsInBuffer(CHANGE_MATCHING_BUFFER_INDEX, entityId)) &&
+                !collector.ContainsInBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId);
             
             var isMatched = !entityGraph.WishDestroy && matcher.ComponentFilter(entityGraph.RwComponents);
 
@@ -510,7 +469,6 @@ namespace CoreECS.Managers
 
             if (isMatched)
             {
-                if (!dontAdd) collector.AddUniqueToBuffer(COLLECTED_BUFFER_INDEX, entityId);
                 collector.RemoveFromBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId);
                 collector.AddUniqueToBuffer(CHANGE_MATCHING_BUFFER_INDEX, entityId);
 
@@ -519,7 +477,6 @@ namespace CoreECS.Managers
             }
             else
             {
-                if (!dontRemove) collector.RemoveFromBuffer(COLLECTED_BUFFER_INDEX, entityId);
                 collector.RemoveFromBuffer(CHANGE_MATCHING_BUFFER_INDEX, entityId);
                 collector.AddUniqueToBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId);
 
