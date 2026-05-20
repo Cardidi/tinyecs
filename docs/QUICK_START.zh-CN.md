@@ -1,30 +1,30 @@
-# Quick Start Guide
+# 快速入门指南
 
-> Step-by-step guide to building with CoreECS — from `World` setup to collectors and a complete runnable example.
+> 从零开始使用 CoreECS：从 `World` 搭建到收集器与完整可运行示例。
 
-**English** · [简体中文](QUICK_START.zh-CN.md)
+**[English](QUICK_START.md)** · **简体中文**
 
-[← Back to README](../README.md) · [README（中文）](../README.zh-CN.md)
+[← 返回 README（中文）](../README.zh-CN.md) · [README (English)](../README.md)
 
-## Table of Contents
+## 目录
 
-1. [Creating a World](#1-creating-a-world)
-2. [Defining Components](#2-defining-components)
-3. [Creating Entities](#3-creating-entities)
-4. [Adding Components](#4-adding-components-to-entities)
-5. [Accessing Components](#5-accessing-components)
-6. [Removing Components](#6-removing-components)
-7. [Defining Systems](#7-defining-systems)
-8. [Managing Systems](#8-managing-systems)
-9. [Entity Matchers](#9-using-entity-matchers)
-10. [Entity Collectors](#10-entity-collector--advanced-filtering-and-change-tracking)
-11. [Complete Example](#11-complete-example)
+1. [创建 World](#1-创建-world)
+2. [定义组件](#2-定义组件)
+3. [创建实体](#3-创建实体)
+4. [为实体添加组件](#4-为实体添加组件)
+5. [访问组件](#5-访问组件)
+6. [移除组件](#6-移除组件)
+7. [定义系统](#7-定义系统)
+8. [管理系统](#8-管理系统)
+9. [实体匹配器](#9-实体匹配器)
+10. [实体收集器](#10-实体收集器--高级筛选与变更追踪)
+11. [完整示例](#11-完整示例)
 
 ---
 
-## 1. Creating a World
+## 1. 创建 World
 
-A `World` is the root container for entities, components, and systems.
+`World` 是实体、组件与系统的根容器。
 
 ```csharp
 using CoreECS;
@@ -33,30 +33,30 @@ var world = new World();
 world.Startup();
 ```
 
-### Before `Startup()`
+### `Startup()` 之前
 
-Do **not**:
+**不要**：
 
-- Create entities
-- Add components
-- Register systems
+- 创建实体
+- 添加组件
+- 注册系统
 
-You **can** prepare a custom `World` subclass:
+**可以**通过自定义 `World` 子类做准备：
 
-- Override `RegisterServices` to register DI services (built on first `Startup()`)
-- Override lifecycle hooks (`OnRegisterManager`, `OnConstruct`, `OnStart`, tick/shutdown) or register extra managers
+- 重写 `RegisterServices` 注册 DI 服务（在首次 `Startup()` 时构建）
+- 重写生命周期钩子（`OnRegisterManager`、`OnConstruct`、`OnStart`、Tick/关闭等）或注册额外管理器
 
-After `Startup()`, use `World.InjectionProxy` to resolve services (`null` until the first `Startup()` completes).
+`Startup()` 之后可通过 `World.InjectionProxy` 解析服务（首次 `Startup()` 完成前为 `null`）。
 
-> **Thread safety:** Worlds are not thread-safe. Access them from a single thread (typically the main/game thread).
+> **线程安全：** World 非线程安全，请在单线程（通常是主线程/游戏线程）访问。
 
-When finished, call `World.Shutdown()` to release resources.
+使用完毕后调用 `World.Shutdown()` 释放资源。
 
 ---
 
-## 2. Defining Components
+## 2. 定义组件
 
-Components are data-only structs implementing `IComponent<T>`:
+组件为实现 `IComponent<T>` 的纯数据结构：
 
 ```csharp
 public struct PositionComponent : IComponent<PositionComponent>
@@ -77,7 +77,7 @@ public struct HealthComponent : IComponent<HealthComponent>
 }
 ```
 
-Optional lifecycle hooks:
+可选生命周期钩子：
 
 ```csharp
 public struct LifecycleComponent : IComponent<LifecycleComponent>
@@ -92,18 +92,18 @@ public struct LifecycleComponent : IComponent<LifecycleComponent>
 
 ---
 
-## 3. Creating Entities
+## 3. 创建实体
 
-Entities are identified by `ulong` at the storage layer; prefer the `Entity` struct for API ergonomics.
+存储层以 `ulong` 标识实体；对外推荐使用 `Entity` 结构体。
 
 ```csharp
 var entity = world.CreateEntity();
 var anotherEntity = world.GetEntity(entityId);
 ```
 
-### Entity masks
+### 实体掩码
 
-Tag entities with a bitmask for matcher filtering:
+用位掩码标记实体类型，供匹配器过滤：
 
 ```csharp
 enum EntityType
@@ -115,11 +115,11 @@ enum EntityType
 var actor = world.CreateEntity((ulong)EntityType.Actor);
 ```
 
-Default `CreateEntity()` uses `ulong.MaxValue` (compatible with any matcher mask).
+默认 `CreateEntity()` 使用 `ulong.MaxValue`（与任意匹配器掩码兼容）。
 
 ---
 
-## 4. Adding Components to Entities
+## 4. 为实体添加组件
 
 ```csharp
 var velocityRef = entity.CreateComponent<VelocityComponent>();
@@ -128,19 +128,19 @@ velocityRef.RW.Y = 1;
 
 entity.CreateComponent<HealthComponent>().RW.Value = 100;
 
-// Recommended: initial value in one step (runs OnCreate with that value)
+// 推荐：一步写入初始值（OnCreate 在该值上调用）
 var positionRef = entity.CreateComponent(new PositionComponent { X = 10, Y = 20 });
 
-// Avoid: OnCreate runs on default(T), then RW overwrites
+// 避免：OnCreate 在 default(T) 上调用，随后 RW 整体覆盖
 var positionRef2 = entity.CreateComponent<PositionComponent>();
 positionRef2.RW = new PositionComponent { X = 10, Y = 20 };
 ```
 
 ---
 
-## 5. Accessing Components
+## 5. 访问组件
 
-Use `RO` for read-only access and `RW` for writes (writes mark revision and can feed collectors).
+只读用 `RO`，写入用 `RW`（写入会标记修订，并可驱动收集器的 `RevisionAsChange`）。
 
 ```csharp
 var positionRef = entity.GetComponent<PositionComponent>();
@@ -150,14 +150,14 @@ bool hasHealth = entity.HasComponent<HealthComponent>();
 var allComponents = entity.GetComponents();
 ```
 
-### RO / RW notes
+### RO / RW 说明
 
-| Access | Behavior |
-|--------|----------|
-| `RO` | Read-only; preferred in hot paths |
-| `RW` | Writable; triggers revision tracking (`RevisionAsChange` on collectors) |
+| 访问 | 行为 |
+|------|------|
+| `RO` | 只读；热路径优先使用 |
+| `RW` | 可写；触发修订追踪（收集器上的 `RevisionAsChange`） |
 
-### Extension helpers
+### 扩展方法
 
 ```csharp
 if (entity.TryGetComponent<PositionComponent>(out var pos))
@@ -170,11 +170,11 @@ if (!existed)
 entity.GetOrCreateComponent(out var health, new HealthComponent { Value = 100 });
 ```
 
-`GetOrCreateComponent` returns `true` if the component already existed, `false` if it was created.
+`GetOrCreateComponent`：组件已存在返回 `true`，新建返回 `false`。
 
 ---
 
-## 6. Removing Components
+## 6. 移除组件
 
 ```csharp
 entity.DestroyComponent(positionRef);
@@ -183,13 +183,13 @@ entity.DestroyComponent<HealthComponent>();
 
 ---
 
-## 7. Defining Systems
+## 7. 定义系统
 
-Systems implement `ISystem` and process entities (usually via collectors).
+系统实现 `ISystem`，通常通过收集器处理实体。
 
-- Register dependencies in `RegisterServices`; the world resolves constructor parameters via `IInjectionProxy`.
-- Group systems with `TickGroup` and filter execution with `World.Tick(tickMask)` (`(system.TickGroup & tickMask) != 0`).
-- Create collectors in `OnCreate`, call `Flush()` before reading buffers, dispose in `OnDestroy`.
+- 在 `RegisterServices` 中注册依赖；World 通过 `IInjectionProxy` 解析构造函数参数。
+- 用 `TickGroup` 分组，通过 `World.Tick(tickMask)` 过滤执行（`(system.TickGroup & tickMask) != 0`）。
+- 在 `OnCreate` 中创建收集器，读取缓冲区前调用 `Flush()`，在 `OnDestroy` 中 `Dispose()`。
 
 ```csharp
 public class MovementSystem : ISystem
@@ -226,9 +226,9 @@ public class MovementSystem : ISystem
 
 ---
 
-## 8. Managing Systems
+## 8. 管理系统
 
-Registration order is execution order (FIFO). Avoid registering/unregistering between `BeginTick()` and `EndTick()` — changes are queued until the next `BeginTick()`. Entity/component ops are **not** deferred.
+注册顺序即执行顺序（先入先执行）。避免在 `BeginTick()` 与 `EndTick()` 之间注册/注销系统 —— 变更会排队到下一次 `BeginTick()`。实体与组件操作**不会**被延迟。
 
 ```csharp
 var world = new World();
@@ -247,7 +247,7 @@ while (running)
 
 ---
 
-## 9. Using Entity Matchers
+## 9. 实体匹配器
 
 ```csharp
 var positionOnly = EntityMatcher.With.OfAll<PositionComponent>();
@@ -268,19 +268,19 @@ var complex = EntityMatcher.With
 var byMask = EntityMatcher.WithMask((ulong)EntityType.Actor);
 ```
 
-**Mask rules**
+**掩码规则**
 
-- `EntityMatcher.With` → `EntityMask == ulong.MaxValue` (no mask filter).
-- `WithMask(m)` → entity must satisfy `(entity.Mask & m) != 0` before component rules run.
-- No `OfAll` / `OfAny` / `OfNone` → matches any entity that passes the mask check.
+- `EntityMatcher.With` → `EntityMask == ulong.MaxValue`（不按掩码过滤）。
+- `WithMask(m)` → 先满足 `(entity.Mask & m) != 0`，再应用组件规则。
+- 未设置 `OfAll` / `OfAny` / `OfNone` → 通过掩码检查的任意实体均可匹配。
 
 ---
 
-## 10. Entity Collector — Advanced Filtering and Change Tracking
+## 10. 实体收集器 — 高级筛选与变更追踪
 
-Collectors track matcher-qualified entities and summarize changes per `Flush()` phase.
+收集器跟踪满足匹配器的实体，并在每个 `Flush()` 阶段汇总变更。
 
-### Basic usage
+### 基本用法
 
 ```csharp
 var collector = world.CreateCollector(
@@ -294,28 +294,28 @@ for (var i = 0; i < collector.Collected.Count; i++)
 }
 ```
 
-Prefer `Flush()` over obsolete `IEntityCollector.Change()`.
+新代码请使用 `Flush()`，勿用已废弃的 `IEntityCollector.Change()`。
 
-### Buffers (after each `Flush()`)
+### 缓冲区（每次 `Flush()` 之后）
 
-| Buffer | Meaning |
-|--------|---------|
-| `Collected` | Entities currently in the collector |
-| `Matching` | Entered this phase |
-| `Clashing` | Left this phase |
-| `Changed` | Subset to reprocess (controlled by flags) |
+| 缓冲区 | 含义 |
+|--------|------|
+| `Collected` | 当前在收集器内的实体 |
+| `Matching` | 本阶段新进入 |
+| `Clashing` | 本阶段离开 |
+| `Changed` | 需重新处理的子集（由标志位控制） |
 
-Call `Flush()` once per frame/phase before reading any buffer.
+每帧/每阶段读取任何缓冲区前，先调用一次 `Flush()`。
 
-### Flags
+### 标志位
 
-`EntityCollectorFlag.Default` mirrors into `Changed`:
+`EntityCollectorFlag.Default` 会镜像到 `Changed`：
 
-- Structural **match** (`MatchAsChange`)
-- Match-relevant **add/remove** (`RelatedComponentOnly`)
-- Match-relevant **data** revisions (`RevisionAsChange` + `RelatedComponentOnly`)
+- 结构性**进入**（`MatchAsChange`）
+- 与匹配器相关的**增删组件**（`RelatedComponentOnly`）
+- 与匹配器相关的**数据修订**（`RevisionAsChange` + `RelatedComponentOnly`）
 
-Not in `Default`: departures (use `Clashing`, or add `ClashAsChange` to mirror into `Changed`).
+`Default` **不包含**离开事件（查 `Clashing`，或加上 `ClashAsChange` 镜像到 `Changed`）。
 
 ```csharp
 var @default = world.CreateCollector(EntityMatcher.With.OfAll<PositionComponent>());
@@ -329,7 +329,7 @@ var membershipOnly = world.CreateCollector(
     EntityCollectorFlag.None);
 ```
 
-### Change tracking example
+### 变更追踪示例
 
 ```csharp
 var entity = world.CreateEntity();
@@ -342,24 +342,24 @@ foreach (var id in collector.Clashing)
     Console.WriteLine($"Left: {id}");
 ```
 
-| Flag | Effect on `Changed` |
-|------|---------------------|
-| `RevisionAsChange` | Data revisions (in `Default`) |
-| `MatchAsChange` | New members (in `Default`) |
-| `ClashAsChange` | Departures (not in `Default`) |
-| `RelatedComponentOnly` | Matcher-relevant component events (in `Default`) |
-| `None` | Empty `Changed`; use `Matching` / `Clashing` / `Collected` |
+| 标志位 | 对 `Changed` 的影响 |
+|--------|---------------------|
+| `RevisionAsChange` | 数据修订（含于 `Default`） |
+| `MatchAsChange` | 新进入（含于 `Default`） |
+| `ClashAsChange` | 离开（不含于 `Default`） |
+| `RelatedComponentOnly` | 仅匹配器相关组件事件（含于 `Default`） |
+| `None` | `Changed` 为空；使用 `Matching` / `Clashing` / `Collected` |
 
-### Best practices
+### 最佳实践
 
-1. Always `Flush()` before reading buffers.
-2. Use indexed `for` loops on `Collected` (not `foreach`) if you might mutate membership while iterating.
-3. `Dispose()` collectors in `OnDestroy`.
-4. Pick flags for your workflow; add `ClashAsChange` when leave events must appear in `Changed`.
+1. 读取缓冲区前务必 `Flush()`。
+2. 迭代 `Collected` 时若可能改变成员关系，用索引 `for` 而非 `foreach`。
+3. 在 `OnDestroy` 中对收集器 `Dispose()`。
+4. 按工作流选择标志位；若离开事件须出现在 `Changed` 中，添加 `ClashAsChange`。
 
 ---
 
-## 11. Complete Example
+## 11. 完整示例
 
 ```csharp
 using System;
@@ -433,6 +433,6 @@ class Program
 
 ---
 
-**English** · [简体中文](QUICK_START.zh-CN.md)
+**[English](QUICK_START.md)** · **简体中文**
 
-[← Back to README](../README.md) · [README（中文）](../README.zh-CN.md)
+[← 返回 README（中文）](../README.zh-CN.md) · [README (English)](../README.md)
