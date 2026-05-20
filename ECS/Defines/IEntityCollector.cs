@@ -13,21 +13,6 @@ namespace CoreECS.Defines
         /// No special behavior.
         /// </summary>
         None = 0,
-        
-        /// <summary>
-        /// Don't remove elements from Collected before Change() is called.
-        /// </summary>
-        LazyRemove = 1 << 0,
-        
-        /// <summary>
-        /// Don't add elements from Collected before Change() is called.
-        /// </summary>
-        LazyAdd = 1 << 1,
-
-        /// <summary>
-        /// Don't change elements in Collected before Change() is called.
-        /// </summary>
-        Lazy = LazyRemove | LazyAdd,
 
         /// <summary>
         /// Include entities with component revision changes in Changed.
@@ -45,11 +30,6 @@ namespace CoreECS.Defines
         ChangedOnClashing = 1 << 4,
 
         /// <summary>
-        /// Don't update Changed before Flush() is called.
-        /// </summary>
-        LazyChange = 1 << 5,
-
-        /// <summary>
         /// When set, only Match related component changes will be
         /// tracked in the Changed buffer. When not set, all component
         /// changes are tracked regardless of component type relevance.
@@ -59,7 +39,7 @@ namespace CoreECS.Defines
         /// <summary>
         /// Default collector behavior.
         /// </summary>
-        Default = Lazy | LazyChange | ChangedOnRevision | ChangedOnMatching | ChangeMustBeRelatedComponent,
+        Default = ChangedOnRevision | ChangedOnMatching | ChangeMustBeRelatedComponent,
 
     }
     
