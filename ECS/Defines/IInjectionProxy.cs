@@ -17,7 +17,6 @@ namespace CoreECS.Defines
         /// <summary>
         /// Creates a fully constructed instance with constructor dependencies resolved from <see cref="ServiceProvider"/>.
         /// </summary>
-        /// <param name="objectType">The type to create; must not implement <see cref="ISystem"/>.</param>
         object CreateObject(Type objectType);
 
         /// <summary>
