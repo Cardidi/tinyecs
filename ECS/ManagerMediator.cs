@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 #if NET6_0_OR_GREATER
 using System.Collections.Immutable;
 #endif
@@ -65,9 +64,9 @@ namespace CoreECS
         private readonly IWorld m_world;
         
         /// <summary>
-        /// Dependency injector for manager instances.
+        /// Injection proxy for manager activation.
         /// </summary>
-        private readonly Injector m_injector;
+        private IInjectionProxy m_injectionProxy;
         
         /// <summary>
         /// Flag indicating whether managers have been constructed.
@@ -78,18 +77,21 @@ namespace CoreECS
         /// Initializes a new instance of the ManagerMediator class.
         /// </summary>
         /// <param name="world">The world this mediator belongs to</param>
-        /// <param name="injector">Dependency injector for manager instances</param>
-        public ManagerMediator(IWorld world, Injector injector)
+        public ManagerMediator(IWorld world)
         {
             Assertion.IsNotNull(world);
 
             m_world = world;
-            m_injector = injector;
             m_registeredManagers = new List<(Type, Type)>();
             
             // Initialize with empty manager map initially
             m_managerMap = new Dictionary<Type, IWorldManager>();
         }
+
+        /// <summary>
+        /// Gets manager type pairs registered before construction.
+        /// </summary>
+        internal IReadOnlyList<(Type interfaceType, Type implementationType)> RegisteredManagers => m_registeredManagers;
         
         /// <summary>
         /// Gets a value indicating whether the managers have been booted (initialized).
@@ -173,9 +175,12 @@ namespace CoreECS
         /// Constructs all registered managers and initializes the manager map.
         /// This method should be called once after all managers have been registered.
         /// </summary>
-        public void Construct()
+        /// <param name="injectionProxy">Proxy used to create manager instances</param>
+        public void Construct(IInjectionProxy injectionProxy)
         {
             if (m_constructed) return; // Prevent double construction
+            Assertion.ArgumentNotNull(injectionProxy);
+            m_injectionProxy = injectionProxy;
             
             using (ListPool<IWorldManager>.Get(out var generated))
             {
@@ -208,13 +213,8 @@ namespace CoreECS
 
                     try
                     {
-                        // Create manager instance without calling constructor
-                        var manager = (IWorldManager) FormatterServices.GetUninitializedObject(implementationType);
-                        
-                        // Register manager into injector if possible
-                        if (m_injector != null) m_injector.Register(manager);
+                        var manager = (IWorldManager)m_injectionProxy.CreateObject(implementationType);
 
-                        // Register both the interface type and implementation type to the same manager instance
                         if (interfaceType != implementationType) built.Add(interfaceType, manager);
                         built.Add(implementationType, manager);
                         generated.Add(manager);
@@ -231,12 +231,6 @@ namespace CoreECS
 #else
                 m_managerMap = built;
 #endif
-
-                // Now inject dependencies for all managers
-                if (m_injector != null)
-                {
-                    foreach (var mgr in generated) m_injector.InjectConstructor(mgr);
-                }
             }
             
             m_constructed = true;

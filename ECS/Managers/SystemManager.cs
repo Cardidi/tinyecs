@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 using CoreECS.Defines;
 using CoreECS.Utils;
 
@@ -94,9 +93,14 @@ namespace CoreECS.Managers
         private readonly Queue<Type> m_addSystems = new();
 
         /// <summary>
-        /// Dependency injector for systems.
+        /// Injection proxy for resolving system constructor dependencies.
         /// </summary>
-        private readonly Injector m_injector;
+        private readonly IInjectionProxy m_injectionProxy;
+
+        /// <summary>
+        /// Runtime instance registry (island) for post-startup registrations.
+        /// </summary>
+        private readonly Injector m_runtimeInjection;
 
         /// <summary>
         /// Indicates whether the manager has been initialized.
@@ -178,9 +182,10 @@ namespace CoreECS.Managers
             Assertion.IsParentTypeTo<ISystem>(systemType);
             Assertion.IsFalse(m_systemTransformer.ContainsKey(systemType));
             
-            var sys = (ISystem) FormatterServices.GetUninitializedObject(systemType);
-            if (m_injector != null) m_injector.InjectConstructor(sys);
-            return sys;
+            return SystemActivation.Activate(
+                m_injectionProxy.ServiceProvider,
+                m_runtimeInjection,
+                systemType);
         }
 
         /// <summary>
@@ -352,11 +357,13 @@ namespace CoreECS.Managers
         /// Initializes a new instance of the SystemManager class.
         /// </summary>
         /// <param name="world">The world this manager belongs to</param>
-        /// <param name="injector">The dependency injector for systems</param>
-        public SystemManager(IWorld world, Injector injector)
+        /// <param name="injectionProxy">Injection proxy for constructor dependency resolution</param>
+        /// <param name="runtimeInjection">Runtime instance registry for post-startup service registration</param>
+        public SystemManager(IWorld world, IInjectionProxy injectionProxy, Injector runtimeInjection)
         {
             World = world;
-            m_injector = injector;
+            m_injectionProxy = injectionProxy;
+            m_runtimeInjection = runtimeInjection;
         }
     }
 }

@@ -14,6 +14,12 @@ namespace CoreECS
     /// </summary>
     public class World : MinimalWorld
     {
+        /// <inheritdoc />
+        protected override IInjectionProxyFactory GetInjectionProxyFactory()
+        {
+            return new CoreInjectionProxyFactory();
+        }
+
         /// <summary>
         /// Gets the entity match manager responsible for creating entity collectors.
         /// </summary>
