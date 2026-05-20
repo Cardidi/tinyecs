@@ -4,13 +4,11 @@
 
 **State-first Entity–Component–System toolkit for C# games**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%20netstandard2.1-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
-[![PR Build and Test](https://github.com/Cardidi/CoreECS/actions/workflows/pr-build-test.yml/badge.svg)](https://github.com/Cardidi/CoreECS/actions/workflows/pr-build-test.yml)
+**English** · [简体中文](README.zh-CN.md)
 
 Lightweight ECS you can embed beside Unity ECS or other stacks — built around **ComponentStore**, **EntityGraph**, and **structural-change collectors**.
 
-[Quick Start Guide](docs/QUICK_START.md) · [License](LICENSE) · [NuGet](https://www.nuget.org/packages/CoreECS)
+[Quick Start Guide](docs/QUICK_START.md) · [快速入门（中文）](docs/QUICK_START.zh-CN.md) · [License](LICENSE) · [NuGet](https://www.nuget.org/packages/CoreECS)
 
 </div>
 
@@ -101,7 +99,9 @@ CoreECS grew from a turn-based card project that needed **predictable state** an
 
 | Document | Description |
 |----------|-------------|
-| [**Quick Start Guide**](docs/QUICK_START.md) | Full tutorial: 11 sections from world setup to complete example |
+| [**Quick Start Guide**](docs/QUICK_START.md) | Full tutorial (English): 11 sections from world setup to complete example |
+| [**快速入门指南**](docs/QUICK_START.zh-CN.md) | 完整教程（中文） |
+| [**README（中文）**](README.zh-CN.md) | 项目说明中文版 |
 | [**AGENTS.md**](AGENTS.md) | Build commands and contributor notes for agents/CI |
 
 ---
@@ -112,8 +112,9 @@ CoreECS grew from a turn-based card project that needed **predictable state** an
 CoreECS/
 ├── ECS/          # CoreECS library (net8.0 + netstandard2.1)
 ├── Test/         # NUnit tests
-├── docs/         # Guides (Quick Start, …)
-└── README.md     # This file
+├── docs/              # Guides (Quick Start, …)
+├── README.md          # English (this file)
+└── README.zh-CN.md    # 简体中文
 ```
 
 ---
