@@ -4,13 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 namespace CoreECS.Utils
 {
     /// <summary>
-    /// Builds <see cref="InjectorInjectionProxy"/> for worlds without a third-party DI container.
+    /// Builds <see cref="BuiltinInjectionProxy"/> for worlds without a third-party DI container.
     /// </summary>
-    public sealed class InjectorInjectionProxyFactory : IInjectionProxyFactory
+    public sealed class BuiltinInjectionProxyFactory : IInjectionProxyFactory
     {
         private readonly Injector m_injector;
 
-        public InjectorInjectionProxyFactory(Injector injector)
+        public BuiltinInjectionProxyFactory(Injector injector)
         {
             Assertion.ArgumentNotNull(injector);
             m_injector = injector;
@@ -30,7 +30,7 @@ namespace CoreECS.Utils
             collection.AddSingleton<IInjectionProxy>(sp => sp.GetRequiredService<InjectionProxyReference>().Value);
 
             var provider = collection.BuildServiceProvider();
-            var proxy = new InjectorInjectionProxy(provider, m_injector);
+            var proxy = new BuiltinInjectionProxy(provider, m_injector);
             holder.Value = proxy;
             return proxy;
         }

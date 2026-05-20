@@ -1,20 +1,25 @@
 using System;
+using System.Runtime.Serialization;
 using CoreECS.Defines;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CoreECS.Utils
 {
     /// <summary>
-    /// Default <see cref="IInjectionProxy"/> backed by a built service provider.
+    /// Built-in <see cref="IInjectionProxy"/> that activates objects via <see cref="Injector"/> with
+    /// optional constructor dependencies resolved from a built <see cref="IServiceProvider"/>.
     /// </summary>
-    public sealed class CoreInjectionProxy : IInjectionProxy
+    public sealed class BuiltinInjectionProxy : IInjectionProxy
     {
         private readonly IServiceProvider m_serviceProvider;
+        private readonly Injector m_injector;
 
-        public CoreInjectionProxy(IServiceProvider serviceProvider)
+        public BuiltinInjectionProxy(IServiceProvider serviceProvider, Injector injector)
         {
             Assertion.ArgumentNotNull(serviceProvider);
+            Assertion.ArgumentNotNull(injector);
             m_serviceProvider = serviceProvider;
+            m_injector = injector;
         }
 
         public IServiceProvider ServiceProvider => m_serviceProvider;
@@ -29,7 +34,10 @@ namespace CoreECS.Utils
                     $"Type {objectType.Name} implements {nameof(ISystem)} and must not be created via {nameof(IInjectionProxy)}.");
             }
 
-            return ActivatorUtilities.GetServiceOrCreateInstance(m_serviceProvider, objectType);
+            var instance = FormatterServices.GetUninitializedObject(objectType);
+            m_injector.Register(instance);
+            ConstructorInjection.Inject(m_serviceProvider, m_injector.Instances, instance);
+            return instance;
         }
 
         public T CreateObject<T>()

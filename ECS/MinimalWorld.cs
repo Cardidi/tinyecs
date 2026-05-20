@@ -260,7 +260,8 @@ namespace CoreECS
         /// </summary>
         protected virtual IInjectionProxyFactory GetInjectionProxyFactory()
         {
-            return new CoreInjectionProxyFactory();
+            throw new NotImplementedException(
+                $"{GetType().Name} must override {nameof(GetInjectionProxyFactory)} to provide an {nameof(IInjectionProxyFactory)} implementation.");
         }
 
         /// <summary>

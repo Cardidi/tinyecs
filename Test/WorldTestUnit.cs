@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using CoreECS;
 using CoreECS.Defines;
 using CoreECS.Managers;
+using CoreECS.Utils;
 using NUnit.Framework;
 using TinyECS;
 
@@ -528,6 +529,11 @@ namespace TinyECS.Test
         // Test MinimalWorld implementation for testing lifecycle events
         private class TestMinimalWorld : MinimalWorld
         {
+            protected override IInjectionProxyFactory GetInjectionProxyFactory()
+            {
+                return new BuiltinInjectionProxyFactory(Injection);
+            }
+
             public bool RegisterManagerCalled { get; private set; }
             public bool ConstructCalled { get; private set; }
             public bool FirstStartCalled { get; private set; }
@@ -616,7 +622,11 @@ namespace TinyECS.Test
         // Custom world to test manager lifecycle
         private class TestWorldWithCustomManager : MinimalWorld
         {
-            
+            protected override IInjectionProxyFactory GetInjectionProxyFactory()
+            {
+                return new BuiltinInjectionProxyFactory(Injection);
+            }
+
             protected override void OnRegisterManager(IManagerRegister register)
             {
                 // Register our test manager
