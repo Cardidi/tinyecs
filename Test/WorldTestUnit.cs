@@ -1,9 +1,8 @@
-using CoreECS;
 using CoreECS.Defines;
 using CoreECS.Managers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace TinyECS.Test
+namespace CoreECS.Test
 {
     [TestFixture]
     public class WorldTestUnit
