@@ -619,8 +619,7 @@ namespace TinyECS.Test
         public void StressTest_RWPerformanceBaseline_WithRevisionTrackingCollector()
         {
             const int iterations = 100000;
-            const EntityCollectorFlag collectorFlag =
-                EntityCollectorFlag.None | EntityCollectorFlag.ChangedOnRevision | EntityCollectorFlag.LazyChange;
+            const EntityCollectorFlag collectorFlag = EntityCollectorFlag.ChangedOnRevision;
 
             var repeatedGetter = MeasureBestRwScenario(
                 "RW baseline with revision collector (repeated getter)",
@@ -676,8 +675,6 @@ namespace TinyECS.Test
             var entity = world.CreateEntity();
             var position = entity.CreateComponent<PositionComponent>();
 
-            if (collectorFlag.HasValue && (collectorFlag.Value & EntityCollectorFlag.LazyChange) != 0)
-                collector?.Flush();
             collector?.Flush();
 
             var initialRevision = position.Revision;
