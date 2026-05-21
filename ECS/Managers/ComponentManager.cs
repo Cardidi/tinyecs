@@ -158,7 +158,8 @@ namespace CoreECS.Managers
         /// <summary>
         /// Rearranges the components in this store to optimize memory usage.
         /// </summary>
-        public abstract void Rearrange();
+        /// <returns>The number of invalid component slots removed from the allocated range.</returns>
+        public abstract int Rearrange();
 
         /// <summary>
         /// Sets the callbacks used by this store.
@@ -422,21 +423,23 @@ namespace CoreECS.Managers
         /// <returns>The position of the allocated component in the store</returns>
         public int Fix(ulong entityId, TComp initialValue)
         {
+            const int requiredSlots = 1;
             var pos = Allocated;
             var capa = m_components.Length;
             
             // Check if we need to expand the array
             if (NeedsMoreSpace(pos, capa))
             {
+                var compactedCount = 0;
                 if (m_needRearrange)
                 {
-                    Rearrange();
+                    compactedCount = Rearrange();
                     pos = Allocated;
-                    capa = m_components.Length;
                 }
 
-                if (NeedsMoreSpace(pos, capa))
+                if (compactedCount < requiredSlots)
                 {
+                    capa = m_components.Length;
                     var newSize = (int) MathF.Floor(MathF.Max(pos + 1, MathF.Round(capa * AutoIncreaseRate)));
                     Array.Resize(ref m_components, newSize);
                 }
@@ -503,10 +506,9 @@ namespace CoreECS.Managers
         /// <summary>
         /// Rearranges the components in this store to optimize memory usage.
         /// </summary>
-        public override void Rearrange()
+        /// <returns>The number of invalid component slots removed from the allocated range.</returns>
+        public override int Rearrange()
         {
-            if (!m_needRearrange) return;
-
             var oldAllocated = Allocated;
             var left = 0;
             var right = oldAllocated - 1;
@@ -530,6 +532,7 @@ namespace CoreECS.Managers
 
             Allocated = right + 1;
             m_needRearrange = false;
+            return oldAllocated - Allocated;
         }
 
         /// <summary>

@@ -251,6 +251,25 @@ namespace CoreECS.Test
             for (var i = 0; i < store.Allocated; i++)
                 Assert.AreNotEqual(0UL, store.ComponentGroups[i].Entity);
         }
+
+        [Test]
+        public void ComponentManager_ComponentStore_Rearrange_ReturnsCompactedSlotCount()
+        {
+            var store = _componentManager.GetComponentStore<PositionComponent>();
+            var core1 = _componentManager.CreateComponent<PositionComponent>(_world.CreateEntity().EntityId);
+            var core2 = _componentManager.CreateComponent<PositionComponent>(_world.CreateEntity().EntityId);
+            var core3 = _componentManager.CreateComponent<PositionComponent>(_world.CreateEntity().EntityId);
+
+            _componentManager.DestroyComponent(core2);
+            _componentManager.DestroyComponent(core3);
+
+            var compacted = store.Rearrange();
+
+            Assert.AreEqual(2, compacted);
+            Assert.AreEqual(1, store.Allocated);
+            Assert.IsTrue(core1.RefLocator.NotNull(core1.Version, core1.Offset));
+            Assert.AreEqual(0, store.Rearrange());
+        }
         
         [Test]
         public void ComponentManager_ComponentStore_ExpandMethod_IncreasesCapacity()
