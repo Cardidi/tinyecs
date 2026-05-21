@@ -300,7 +300,7 @@ namespace CoreECS
         /// Unregisters a system from the world.
         /// </summary>
         /// <param name="systemType">The type of system to unregister</param>
-        /// <exception cref="InvalidOperationException">Thrown when system manager is not available</exception>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready, system manager is not available, or the system is not registered</exception>
         public void UnregisterSystem(Type systemType)
         {
             Assertion.IsTrue(Ready, "World is not ready");
@@ -315,7 +315,7 @@ namespace CoreECS
         /// Unregisters a system from the world.
         /// </summary>
         /// <typeparam name="T">The type of system to unregister, must implement ISystem</typeparam>
-        /// <exception cref="InvalidOperationException">Thrown when system manager is not available</exception>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready, system manager is not available, or the system is not registered</exception>
         public void UnregisterSystem<T>() where T : class, ISystem
         {
             Assertion.IsTrue(Ready, "World is not ready");

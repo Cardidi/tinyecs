@@ -59,6 +59,19 @@ namespace CoreECS.Test
             // Assert
             Assert.IsFalse(systemManager.SystemTransformer.ContainsKey(typeof(TestSystem)));
         }
+
+        [Test]
+        public void SystemManager_UnregisterSystem_ThrowsWhenSystemIsNotRegistered()
+        {
+            // Arrange
+            var systemManager = _world.GetManager<SystemManager>();
+
+            // Act & Assert
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                systemManager.UnregisterSystem(typeof(TestSystem)));
+
+            Assert.AreEqual("System CoreECS.Test.SystemTestUnit+TestSystem is not registered.", ex!.Message);
+        }
         
         [Test]
         public void SystemManager_CanExecuteSystems()
