@@ -357,6 +357,11 @@ namespace CoreECS.Managers
         /// Array of component groups containing component data and metadata.
         /// </summary>
         private Group[] m_components;
+
+        /// <summary>
+        /// Tracks whether allocated slots contain invalid components that can be compacted.
+        /// </summary>
+        private bool m_needRearrange;
         
         /// <summary>
         /// Gets the reference locator of this store.
@@ -421,16 +426,28 @@ namespace CoreECS.Managers
             var capa = m_components.Length;
             
             // Check if we need to expand the array
-            if (pos > MathF.Floor(capa * AutoIncreaseTriggerEdge) || pos >= capa)
+            if (NeedsMoreSpace(pos, capa))
             {
-                var newSize = (int) MathF.Floor(MathF.Max(pos + 1, MathF.Round(capa * AutoIncreaseRate)));
-                Array.Resize(ref m_components, newSize);
+                if (m_needRearrange)
+                {
+                    Rearrange();
+                    pos = Allocated;
+                    capa = m_components.Length;
+                }
+
+                if (NeedsMoreSpace(pos, capa))
+                {
+                    var newSize = (int) MathF.Floor(MathF.Max(pos + 1, MathF.Round(capa * AutoIncreaseRate)));
+                    Array.Resize(ref m_components, newSize);
+                }
             }
 
             ref var gs = ref m_components[pos];
+            var version = gs.Version;
+            gs = default;
             gs.Component = initialValue;
             gs.Entity = entityId;
-            gs.Version = (gs.Version % uint.MaxValue) + 1;
+            gs.Version = (version % uint.MaxValue) + 1;
 
             gs.RefCore = ComponentRefCore.Pool.Get();
             gs.RefCore.Allocate(RefLocator, pos, gs.Version);
@@ -446,6 +463,11 @@ namespace CoreECS.Managers
             }
             
             return pos;
+
+            bool NeedsMoreSpace(int position, int capacity)
+            {
+                return position > MathF.Floor(capacity * AutoIncreaseTriggerEdge) || position >= capacity;
+            }
         }
 
         /// <summary>
@@ -474,6 +496,7 @@ namespace CoreECS.Managers
             posGs.Entity = 0;
             ComponentRefCore.Pool.Release(posGs.RefCore);
             posGs.RefCore = null;
+            m_needRearrange = true;
             return true;
         }
 
@@ -482,6 +505,8 @@ namespace CoreECS.Managers
         /// </summary>
         public override void Rearrange()
         {
+            if (!m_needRearrange) return;
+
             var oldAllocated = Allocated;
             var left = 0;
             var right = oldAllocated - 1;
@@ -504,8 +529,7 @@ namespace CoreECS.Managers
             }
 
             Allocated = right + 1;
-            if (Allocated < oldAllocated)
-                Array.Clear(m_components, Allocated, oldAllocated - Allocated);
+            m_needRearrange = false;
         }
 
         /// <summary>

@@ -226,6 +226,31 @@ namespace CoreECS.Test
             Assert.Greater(store.Capacity, initialCapacity);
             Assert.AreEqual(initialCapacity + 10, store.Allocated);
         }
+
+        [Test]
+        public void ComponentManager_ComponentStore_RearrangesBeforeExpandingWhenInvalidSlotsExist()
+        {
+            var store = _componentManager.GetComponentStore<PositionComponent>();
+            var initialCapacity = store.Capacity;
+            var cores = new List<IComponentRefCore>(initialCapacity);
+
+            for (var i = 0; i < initialCapacity; i++)
+            {
+                var entity = _world.CreateEntity();
+                cores.Add(_componentManager.CreateComponent<PositionComponent>(entity.EntityId));
+            }
+
+            for (var i = 0; i < initialCapacity; i += 2)
+                _componentManager.DestroyComponent(cores[i]);
+
+            _componentManager.CreateComponent<PositionComponent>(_world.CreateEntity().EntityId);
+
+            Assert.AreEqual(initialCapacity, store.Capacity);
+            Assert.AreEqual(initialCapacity / 2 + 1, store.Allocated);
+
+            for (var i = 0; i < store.Allocated; i++)
+                Assert.AreNotEqual(0UL, store.ComponentGroups[i].Entity);
+        }
         
         [Test]
         public void ComponentManager_ComponentStore_ExpandMethod_IncreasesCapacity()
