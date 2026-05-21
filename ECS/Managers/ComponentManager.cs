@@ -482,22 +482,30 @@ namespace CoreECS.Managers
         /// </summary>
         public override void Rearrange()
         {
-            var writePos = 0;
-            for (var readPos = 0; readPos < Allocated; readPos++)
+            var oldAllocated = Allocated;
+            var left = 0;
+            var right = oldAllocated - 1;
+
+            while (left <= right)
             {
-                if (m_components[readPos].Entity == 0) continue;
+                while (left <= right && m_components[left].Entity != 0)
+                    left += 1;
 
-                if (writePos != readPos)
-                {
-                    m_components[writePos] = m_components[readPos];
-                    ref var gs = ref m_components[writePos];
-                    gs.RefCore?.Relocate(writePos);
-                }
+                while (left <= right && m_components[right].Entity == 0)
+                    right -= 1;
 
-                writePos += 1;
+                if (left > right) break;
+
+                m_components[left] = m_components[right];
+                ref var gs = ref m_components[left];
+                gs.RefCore?.Relocate(left);
+                left += 1;
+                right -= 1;
             }
 
-            Allocated = writePos;
+            Allocated = right + 1;
+            if (Allocated < oldAllocated)
+                Array.Clear(m_components, Allocated, oldAllocated - Allocated);
         }
 
         /// <summary>
