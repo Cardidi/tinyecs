@@ -131,15 +131,17 @@ namespace CoreECS.Managers
             Assertion.IsTrue(m_init);
             Assertion.IsFalse(m_shutdown);
             
-            if (m_entityCaches.TryGetValue(entityId, out var graph))
+            if (m_entityCaches.Remove(entityId, out var graph))
             {
                 graph.WishDestroy = true;
                 while (graph.RwComponents.Count > 0)
                 {
-                    m_compManager.DestroyComponent(graph.RwComponents[^1]);
+                    var last = graph.RwComponents.Count - 1;
+                    var component = graph.RwComponents[last];
+                    graph.RwComponents.RemoveAt(last);
+                    m_compManager.DestroyComponent(component);
                 }
 
-                m_entityCaches.Remove(entityId);
                 OnEntityLoseComp.Emit(in graph, (Type)null, static (h, g, t) => h(g, t));
                 EntityGraph.Pool.Release(graph);
             }
