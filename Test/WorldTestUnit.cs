@@ -319,6 +319,34 @@ namespace CoreECS.Test
         }
 
         [Test]
+        public void World_GetEntitiesWithComponent_Ulong_SkipsReleasedAndStaleEntityIdsBeforeCleanup()
+        {
+            var world = new World();
+            world.Startup();
+
+            var alive = world.CreateEntity();
+            var componentReleased = world.CreateEntity();
+            var entityDestroyed = world.CreateEntity();
+
+            alive.CreateComponent<PositionComponent>();
+            var releasedRef = componentReleased.CreateComponent<PositionComponent>();
+            entityDestroyed.CreateComponent<PositionComponent>();
+
+            componentReleased.DestroyComponent(releasedRef);
+            world.DestroyEntity(entityDestroyed);
+
+            var ids = new List<ulong>();
+            var returned = world.GetEntitiesWithComponent<PositionComponent>(ids);
+
+            Assert.AreEqual(1, returned);
+            CollectionAssert.AreEqual(new[] { alive.EntityId }, ids);
+            CollectionAssert.DoesNotContain(ids, 0UL);
+            CollectionAssert.DoesNotContain(ids, entityDestroyed.EntityId);
+
+            world.Shutdown();
+        }
+
+        [Test]
         public void World_GetEntitiesWithComponent_Entity_ReturnsValidHandlesMatchingIds()
         {
             var world = new World();

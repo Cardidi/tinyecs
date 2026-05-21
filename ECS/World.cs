@@ -201,30 +201,38 @@ namespace CoreECS
         }
 
         /// <summary>
-        /// Collects the entity IDs of all entities that currently have an allocated <typeparamref name="TComp"/> instance
-        /// in the component store, and appends each ID to <paramref name="result"/>.
+        /// Collects the entity IDs of all live entities that currently have a <typeparamref name="TComp"/> instance,
+        /// and appends each ID to <paramref name="result"/>.
         /// </summary>
         /// <typeparam name="TComp">The component type to query; must be a struct implementing <see cref="IComponent{TComp}"/>.</typeparam>
         /// <param name="result">The collection to append entity IDs to. Existing contents are not cleared.</param>
-        /// <returns>The number of allocated component entries for <typeparamref name="TComp"/> (equal to the number of IDs appended).</returns>
+        /// <returns>The number of entity IDs appended to <paramref name="result"/>.</returns>
         /// <exception cref="InvalidOperationException">Thrown when the world is not ready or the component manager is not available.</exception>
         public int GetEntitiesWithComponent<TComp>(ICollection<ulong> result) where TComp : struct, IComponent<TComp>
         {
             Assertion.IsTrue(Ready, "World is not ready");
             
-            if (Component == null)
+            if (Entity == null || Component == null)
                 throw new InvalidOperationException("Core ECS managers are not available");
 
             var store = Component.GetComponentStore<TComp>();
             var ds = store.ComponentGroups;
             var count = store.Allocated;
+            var broken = 0;
 
             for (var i = 0; i < count; i++)
             {
-                result.Add(ds[i].Entity);
+                var entityId = ds[i].Entity;
+                if (Entity.GetEntity(entityId) == null)
+                {
+                    broken += 1;
+                    continue;
+                }
+
+                result.Add(entityId);
             }
             
-            return count;
+            return count - broken;
         }
 
         /// <summary>
@@ -240,7 +248,7 @@ namespace CoreECS
         {
             Assertion.IsTrue(Ready, "World is not ready");
             
-            if (Component == null)
+            if (Entity == null || Component == null)
                 throw new InvalidOperationException("Core ECS managers are not available");
 
             var store = Component.GetComponentStore<TComp>();
