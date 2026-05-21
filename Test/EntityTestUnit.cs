@@ -1,4 +1,5 @@
 using CoreECS.Defines;
+using CoreECS.Managers;
 
 namespace CoreECS.Test
 {
@@ -30,6 +31,40 @@ namespace CoreECS.Test
             Assert.IsTrue(entity.IsValid);
             Assert.AreEqual(_world, entity.World);
             Assert.IsTrue(entity.EntityId > 0);
+        }
+
+        [Test]
+        public void Entity_Equals_DifferentWorldWithSameIdAndGeneration_ReturnsFalse()
+        {
+            // Arrange
+            var otherWorld = new World();
+            otherWorld.Startup();
+
+            try
+            {
+                var entity = _world.CreateEntity();
+                var graph = _world.GetManager<EntityManager>().GetEntity(entity.EntityId);
+                var sameIdAndGenerationInOtherWorld = new Entity(otherWorld, entity.EntityId, graph.Generation);
+
+                // Act
+                var equalsResult = entity.Equals(sameIdAndGenerationInOtherWorld);
+                var reverseEqualsResult = sameIdAndGenerationInOtherWorld.Equals(entity);
+                var equalityOperatorResult = entity == sameIdAndGenerationInOtherWorld;
+                var inequalityOperatorResult = entity != sameIdAndGenerationInOtherWorld;
+
+                // Assert
+                Assert.AreEqual(entity.EntityId, sameIdAndGenerationInOtherWorld.EntityId);
+                Assert.AreNotSame(entity.World, sameIdAndGenerationInOtherWorld.World);
+                Assert.IsFalse(equalsResult);
+                Assert.IsFalse(reverseEqualsResult);
+                Assert.IsFalse(equalityOperatorResult);
+                Assert.IsTrue(inequalityOperatorResult);
+                Assert.AreNotEqual(entity.GetHashCode(), sameIdAndGenerationInOtherWorld.GetHashCode());
+            }
+            finally
+            {
+                otherWorld.Shutdown();
+            }
         }
         
         [Test]
