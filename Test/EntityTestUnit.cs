@@ -53,13 +53,13 @@ namespace CoreECS.Test
                 var inequalityOperatorResult = entity != sameIdAndGenerationInOtherWorld;
 
                 // Assert
-                Assert.AreEqual(entity.EntityId, sameIdAndGenerationInOtherWorld.EntityId);
-                Assert.AreNotSame(entity.World, sameIdAndGenerationInOtherWorld.World);
-                Assert.IsFalse(equalsResult);
-                Assert.IsFalse(reverseEqualsResult);
-                Assert.IsFalse(equalityOperatorResult);
-                Assert.IsTrue(inequalityOperatorResult);
-                Assert.AreNotEqual(entity.GetHashCode(), sameIdAndGenerationInOtherWorld.GetHashCode());
+                Assert.That(sameIdAndGenerationInOtherWorld.EntityId, Is.EqualTo(entity.EntityId));
+                Assert.That(sameIdAndGenerationInOtherWorld.World, Is.Not.SameAs(entity.World));
+                Assert.That(equalsResult, Is.False);
+                Assert.That(reverseEqualsResult, Is.False);
+                Assert.That(equalityOperatorResult, Is.False);
+                Assert.That(inequalityOperatorResult, Is.True);
+                Assert.That(sameIdAndGenerationInOtherWorld.GetHashCode(), Is.Not.EqualTo(entity.GetHashCode()));
             }
             finally
             {
