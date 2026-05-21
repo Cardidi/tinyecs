@@ -165,11 +165,6 @@ namespace CoreECS.Managers
         /// </summary>
         /// <param name="callbackOnChanged">Callback to invoke on revision changes</param>
         public abstract void SetCallbacks(Action<IComponentRefCore, ulong> callbackOnChanged);
-
-        /// <summary>
-        /// Marks existing component references as invalid when the owning manager is destroyed.
-        /// </summary>
-        internal abstract void InvalidateReferences();
     }
 
     /// <summary>
@@ -230,8 +225,6 @@ namespace CoreECS.Managers
             /// <returns>True if the component reference is valid and not null, false otherwise</returns>
             public bool NotNull(uint version, int offset)
             {
-                if (m_store.m_shutdown) return false;
-                if (offset < 0) return false;
                 if (offset >= m_store.Allocated) return false;
                 ref var g = ref m_store.m_components[offset];
                 
@@ -356,11 +349,6 @@ namespace CoreECS.Managers
         /// Callback invoked when a component revision changes.
         /// </summary>
         private Action<IComponentRefCore, ulong> m_revisionChanged;
-
-        /// <summary>
-        /// Indicates whether references from this store should be treated as invalid.
-        /// </summary>
-        private bool m_shutdown;
         
         /// <summary>
         /// Array of component groups containing component data and metadata.
@@ -521,11 +509,6 @@ namespace CoreECS.Managers
         public override void SetCallbacks(Action<IComponentRefCore, ulong> callbackOnChanged)
         {
             m_revisionChanged = callbackOnChanged;
-        }
-
-        internal override void InvalidateReferences()
-        {
-            m_shutdown = true;
         }
 
         /// <summary>
@@ -767,10 +750,6 @@ namespace CoreECS.Managers
         /// <summary>
         /// Called when the manager is destroyed.
         /// </summary>
-        public void OnManagerDestroyed()
-        {
-            foreach (var store in m_compStores.Values)
-                store.InvalidateReferences();
-        }
+        public void OnManagerDestroyed() {}
     }
 }
