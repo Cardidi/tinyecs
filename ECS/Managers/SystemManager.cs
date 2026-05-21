@@ -269,13 +269,15 @@ namespace CoreECS.Managers
         /// Unregisters a system type from the manager.
         /// </summary>
         /// <param name="systemType">The type of system to unregister</param>
+        /// <exception cref="InvalidOperationException">Thrown when the system is not registered</exception>
         public void UnregisterSystem(Type systemType)
         {
             Assertion.IsFalse(m_shutdown, "SystemManager has already shutdown.");
             Assertion.IsNotNull(systemType);
             Assertion.IsParentTypeTo<ISystem>(systemType);
             
-            var sys = m_systemTransformer[systemType];
+            if (!m_systemTransformer.TryGetValue(systemType, out var sys))
+                throw new InvalidOperationException($"System {systemType.FullName} is not registered.");
 
             if (m_changable)
             {
@@ -285,7 +287,7 @@ namespace CoreECS.Managers
             }
             else
             {
-                if (m_systemTransformer.ContainsKey(systemType) && !m_delSystems.Contains(systemType))
+                if (!m_delSystems.Contains(systemType))
                     m_delSystems.Enqueue(systemType);
             }
         }

@@ -258,6 +258,23 @@ namespace CoreECS.Test
         }
 
         [Test]
+        public void World_UnregisterSystem_ThrowsWhenSystemIsNotRegistered()
+        {
+            // Arrange
+            var world = new World();
+            world.Startup();
+
+            // Act & Assert
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                world.UnregisterSystem<TestSystem>());
+
+            Assert.AreEqual("System CoreECS.Test.WorldTestUnit+TestSystem is not registered.", ex!.Message);
+
+            // Cleanup
+            world.Shutdown();
+        }
+
+        [Test]
         public void World_GetEntitiesWithComponent_Ulong_ReturnsIdsForEntitiesWithComponent()
         {
             var world = new World();
