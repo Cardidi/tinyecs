@@ -162,6 +162,11 @@ namespace CoreECS.Managers
         public abstract int Rearrange();
 
         /// <summary>
+        /// Gets a value indicating whether this store contains invalid slots that can be compacted.
+        /// </summary>
+        public bool NeedRearrange { get; protected set; }
+
+        /// <summary>
         /// Sets the callbacks used by this store.
         /// </summary>
         /// <param name="callbackOnChanged">Callback to invoke on revision changes</param>
@@ -360,11 +365,6 @@ namespace CoreECS.Managers
         private Group[] m_components;
 
         /// <summary>
-        /// Tracks whether allocated slots contain invalid components that can be compacted.
-        /// </summary>
-        private bool m_needRearrange;
-        
-        /// <summary>
         /// Gets the reference locator of this store.
         /// </summary>
         public override IComponentRefLocator RefLocator
@@ -431,7 +431,7 @@ namespace CoreECS.Managers
             if (NeedsMoreSpace(pos, capa))
             {
                 var compactedCount = 0;
-                if (m_needRearrange)
+                if (NeedRearrange)
                 {
                     compactedCount = Rearrange();
                     pos = Allocated;
@@ -499,7 +499,7 @@ namespace CoreECS.Managers
             posGs.Entity = 0;
             ComponentRefCore.Pool.Release(posGs.RefCore);
             posGs.RefCore = null;
-            m_needRearrange = true;
+            NeedRearrange = true;
             return true;
         }
 
@@ -531,7 +531,7 @@ namespace CoreECS.Managers
             }
 
             Allocated = right + 1;
-            m_needRearrange = false;
+            NeedRearrange = false;
             return oldAllocated - Allocated;
         }
 
@@ -752,7 +752,8 @@ namespace CoreECS.Managers
         public void CleanupComponents()
         {
             foreach (var store in m_compStores.Values)
-                store.Rearrange();
+                if (store.NeedRearrange)
+                    store.Rearrange();
         }
 
         /// <summary>

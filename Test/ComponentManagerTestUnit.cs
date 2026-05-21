@@ -263,12 +263,13 @@ namespace CoreECS.Test
             _componentManager.DestroyComponent(core2);
             _componentManager.DestroyComponent(core3);
 
+            Assert.IsTrue(store.NeedRearrange);
             var compacted = store.Rearrange();
 
             Assert.AreEqual(2, compacted);
             Assert.AreEqual(1, store.Allocated);
             Assert.IsTrue(core1.RefLocator.NotNull(core1.Version, core1.Offset));
-            Assert.AreEqual(0, store.Rearrange());
+            Assert.IsFalse(store.NeedRearrange);
         }
         
         [Test]
@@ -446,7 +447,9 @@ namespace CoreECS.Test
             // Remove components and trigger rearrangement
             _componentManager.DestroyComponent(posCore1);
             _componentManager.DestroyComponent(posCore3);
-            _componentManager.GetComponentStore<PositionComponent>().Rearrange();
+            var store = _componentManager.GetComponentStore<PositionComponent>();
+            if (store.NeedRearrange)
+                store.Rearrange();
             
             // Modify the cached value
             cachedPosition.X = 75.0f;
