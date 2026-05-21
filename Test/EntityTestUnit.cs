@@ -44,6 +44,20 @@ namespace CoreECS.Test
             // Assert
             Assert.IsFalse(entity.IsValid);
         }
+
+        [Test]
+        public void Entity_IsValidAfterWorldShutdown_ReturnsFalse()
+        {
+            // Arrange
+            var entity = _world.CreateEntity();
+
+            // Act
+            _world.Shutdown();
+            _world = null;
+
+            // Assert
+            Assert.DoesNotThrow(() => Assert.IsFalse(entity.IsValid));
+        }
         
         [Test]
         public void Entity_CanAccessMask()

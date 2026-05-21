@@ -96,15 +96,14 @@ namespace CoreECS
         public IWorld World => m_world ?? throw new InvalidOperationException("Entity is not associated with any world.");
 
         /// <summary>
-        /// Gets a value indicating whether this entity is still valid (not destroyed and not recycled).
+        /// Gets a value indicating whether this entity is still valid (not destroyed, not recycled, and not shut down).
         /// </summary>
         public bool IsValid
         {
             get
             {
-                if (m_world == null) return false;
-                var entityManager = m_world.GetManager<EntityManager>();
-                if (!entityManager.EntityCaches.TryGetValue(m_entityId, out var graph)) return false;
+                if (m_entityManager == null) return false;
+                if (!m_entityManager.EntityCaches.TryGetValue(m_entityId, out var graph)) return false;
                 return graph.Generation == m_generation;
             }
         }
