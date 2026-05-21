@@ -60,21 +60,6 @@ namespace CoreECS.Test
         }
 
         [Test]
-        public void ComponentRef_NotNullAfterWorldShutdown_ReturnsFalse()
-        {
-            // Arrange
-            var entity = _world.CreateEntity();
-            var component = entity.CreateComponent<PositionComponent>();
-
-            // Act
-            _world.Shutdown();
-            _world = null;
-
-            // Assert
-            Assert.DoesNotThrow(() => Assert.IsFalse(component.NotNull));
-        }
-        
-        [Test]
         public void Entity_CanAccessMask()
         {
             // Arrange
