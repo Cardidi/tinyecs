@@ -134,13 +134,11 @@ namespace CoreECS.Managers
             if (m_entityCaches.Remove(entityId, out var graph))
             {
                 graph.WishDestroy = true;
-                while (graph.RwComponents.Count > 0)
+                for (var i = 0; i < graph.RwComponents.Count; i++)
                 {
-                    var last = graph.RwComponents.Count - 1;
-                    var component = graph.RwComponents[last];
-                    graph.RwComponents.RemoveAt(last);
-                    m_compManager.DestroyComponent(component);
+                    m_compManager.DestroyComponent(graph.RwComponents[i]);
                 }
+                graph.RwComponents.Clear();
 
                 OnEntityLoseComp.Emit(in graph, (Type)null, static (h, g, t) => h(g, t));
                 EntityGraph.Pool.Release(graph);
