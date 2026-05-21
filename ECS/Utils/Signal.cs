@@ -243,6 +243,8 @@ namespace CoreECS.Utils
         public void Emit(Emitter<T> emitter)
         {
             Assertion.IsFalse(m_executing);
+            if (m_expose.Count == 0) return;
+
             m_executing = true;
             
             SwapAndUndirty();
@@ -265,6 +267,8 @@ namespace CoreECS.Utils
         public void Emit<TArg1>(in TArg1 arg1, Emitter<T, TArg1> emitter)
         {
             Assertion.IsFalse(m_executing);
+            if (m_expose.Count == 0) return;
+
             m_executing = true;
             
             SwapAndUndirty();
@@ -289,6 +293,8 @@ namespace CoreECS.Utils
         public void Emit<TArg1, TArg2>(in TArg1 arg1, in TArg2 arg2, Emitter<T, TArg1, TArg2> emitter)
         {
             Assertion.IsFalse(m_executing);
+            if (m_expose.Count == 0) return;
+
             m_executing = true;
             
             SwapAndUndirty();
@@ -315,6 +321,8 @@ namespace CoreECS.Utils
         public void Emit<TArg1, TArg2, TArg3>(in TArg1 arg1, in TArg2 arg2, in TArg3 arg3, Emitter<T, TArg1, TArg2, TArg3> emitter)
         {
             Assertion.IsFalse(m_executing);
+            if (m_expose.Count == 0) return;
+
             m_executing = true;
             
             SwapAndUndirty();
@@ -345,6 +353,8 @@ namespace CoreECS.Utils
             Emitter<T, TArg1, TArg2, TArg3, TArg4> emitter)
         {
             Assertion.IsFalse(m_executing);
+            if (m_expose.Count == 0) return;
+
             m_executing = true;
             
             SwapAndUndirty();
@@ -377,6 +387,8 @@ namespace CoreECS.Utils
             Emitter<T, TArg1, TArg2, TArg3, TArg4, TArg5> emitter)
         {
             Assertion.IsFalse(m_executing);
+            if (m_expose.Count == 0) return;
+
             m_executing = true;
             
             SwapAndUndirty();
@@ -411,6 +423,8 @@ namespace CoreECS.Utils
             Emitter<T, TArg1, TArg2, TArg3, TArg4, TArg5, TArg6> emitter)
         {
             Assertion.IsFalse(m_executing);
+            if (m_expose.Count == 0) return;
+
             m_executing = true;
             
             SwapAndUndirty();

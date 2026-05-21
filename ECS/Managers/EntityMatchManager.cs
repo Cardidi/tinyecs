@@ -351,34 +351,59 @@ namespace CoreECS.Managers
         private int m_revisionTrackingCollectorCount;
 
         /// <summary>
-        /// Indicates whether entity change signals are currently subscribed.
+        /// Indicates whether structural entity change signals are currently subscribed.
         /// </summary>
-        private bool m_isSubscribedToEntitySignals;
+        private bool m_isSubscribedToStructuralEntitySignals;
 
         /// <summary>
-        /// Ensures this manager is subscribed to entity change signals when collectors exist.
+        /// Indicates whether component revision entity change signals are currently subscribed.
         /// </summary>
-        private void _ensureEntitySignalSubscriptions()
+        private bool m_isSubscribedToRevisionEntitySignal;
+
+        /// <summary>
+        /// Ensures this manager is subscribed to structural entity change signals when collectors exist.
+        /// </summary>
+        private void _ensureStructuralEntitySignalSubscriptions()
         {
-            if (m_isSubscribedToEntitySignals) return;
+            if (m_isSubscribedToStructuralEntitySignals) return;
 
             m_entityManager.OnEntityGotComp.Add(_onComponentAdded);
             m_entityManager.OnEntityLoseComp.Add(_onComponentRemoved);
-            m_entityManager.OnEntityChangeComp.Add(_onComponentChanged);
-            m_isSubscribedToEntitySignals = true;
+            m_isSubscribedToStructuralEntitySignals = true;
         }
 
         /// <summary>
-        /// Releases entity change signal subscriptions once the last collector is gone.
+        /// Releases structural entity change signal subscriptions once the last collector is gone.
         /// </summary>
-        private void _releaseEntitySignalSubscriptionsIfUnused()
+        private void _releaseStructuralEntitySignalSubscriptionsIfUnused()
         {
-            if (!m_isSubscribedToEntitySignals || m_collectors.Count > 0) return;
+            if (!m_isSubscribedToStructuralEntitySignals || m_collectors.Count > 0) return;
 
             m_entityManager.OnEntityGotComp.Remove(_onComponentAdded);
             m_entityManager.OnEntityLoseComp.Remove(_onComponentRemoved);
+            m_isSubscribedToStructuralEntitySignals = false;
+        }
+
+        /// <summary>
+        /// Ensures this manager only listens to revision changes when a collector needs them.
+        /// </summary>
+        private void _ensureRevisionEntitySignalSubscription()
+        {
+            if (m_isSubscribedToRevisionEntitySignal) return;
+
+            m_entityManager.OnEntityChangeComp.Add(_onComponentChanged);
+            m_isSubscribedToRevisionEntitySignal = true;
+        }
+
+        /// <summary>
+        /// Releases revision change signal subscription once no collector tracks revisions.
+        /// </summary>
+        private void _releaseRevisionEntitySignalSubscriptionIfUnused()
+        {
+            if (!m_isSubscribedToRevisionEntitySignal || m_revisionTrackingCollectorCount > 0) return;
+
             m_entityManager.OnEntityChangeComp.Remove(_onComponentChanged);
-            m_isSubscribedToEntitySignals = false;
+            m_isSubscribedToRevisionEntitySignal = false;
         }
 
         /// <summary>
@@ -411,6 +436,7 @@ namespace CoreECS.Managers
 
             foreach (var collector in m_collectors)
             {
+                if (!collector.TrackRevisionChanged) continue;
                 _changeCollector(collector, entityGraph, null, false, componentType);
             }
         }
@@ -507,12 +533,17 @@ namespace CoreECS.Managers
         /// <param name="collector">The collector to remove</param>
         private bool _onDisposeCollector(Collector collector)
         {
-            if (collector.TrackRevisionChanged)
-                m_revisionTrackingCollectorCount -= 1;
-
             var removed = m_collectors.Remove(collector);
             if (removed)
-                _releaseEntitySignalSubscriptionsIfUnused();
+            {
+                if (collector.TrackRevisionChanged)
+                {
+                    m_revisionTrackingCollectorCount -= 1;
+                    _releaseRevisionEntitySignalSubscriptionIfUnused();
+                }
+
+                _releaseStructuralEntitySignalSubscriptionsIfUnused();
+            }
 
             return removed;
         }
@@ -537,12 +568,15 @@ namespace CoreECS.Managers
         {
             Assertion.IsNotNull(matcher);
 
-            _ensureEntitySignalSubscriptions();
+            _ensureStructuralEntitySignalSubscriptions();
 
             var c = new Collector(matcher, flag, this);
             m_collectors.Add(c);
             if (c.TrackRevisionChanged)
+            {
                 m_revisionTrackingCollectorCount += 1;
+                _ensureRevisionEntitySignalSubscription();
+            }
 
             var entityManager = World.GetManager<EntityManager>();
             foreach (var ec in entityManager.EntityCaches.Values)
@@ -594,13 +628,17 @@ namespace CoreECS.Managers
             
             m_collectors.Clear();
             m_revisionTrackingCollectorCount = 0;
-            _releaseEntitySignalSubscriptionsIfUnused();
-            if (m_isSubscribedToEntitySignals)
+            if (m_isSubscribedToStructuralEntitySignals)
             {
                 m_entityManager.OnEntityGotComp.Remove(_onComponentAdded);
                 m_entityManager.OnEntityLoseComp.Remove(_onComponentRemoved);
+                m_isSubscribedToStructuralEntitySignals = false;
+            }
+
+            if (m_isSubscribedToRevisionEntitySignal)
+            {
                 m_entityManager.OnEntityChangeComp.Remove(_onComponentChanged);
-                m_isSubscribedToEntitySignals = false;
+                m_isSubscribedToRevisionEntitySignal = false;
             }
         }
 

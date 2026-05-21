@@ -144,10 +144,11 @@ namespace CoreECS
         /// <returns>True if the entity matches the criteria, false otherwise</returns>
         public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components)
         {
-            m_changing.Clear();
-    
             // If no "any" criteria specified, consider it satisfied
-            bool anyConditionMet = m_any.Count == 0; 
+            bool anyConditionMet = m_any.Count == 0;
+            var needsAllCheck = m_all.Count > 0;
+            if (needsAllCheck) m_changing.Clear();
+
             foreach (var component in components)
             {
                 var type = component.RefLocator.GetT();
@@ -159,11 +160,11 @@ namespace CoreECS
                 if (!anyConditionMet && m_any.Contains(type)) anyConditionMet = true;
                 
                 // Track all component types for the "all" check
-                m_changing.Add(type);
+                if (needsAllCheck) m_changing.Add(type);
             }
     
             // Entity matches if "any" condition is met and it has all required components
-            return anyConditionMet && m_changing.IsSupersetOf(m_all);
+            return anyConditionMet && (!needsAllCheck || m_changing.IsSupersetOf(m_all));
         }
 
         /// <summary>

@@ -486,8 +486,11 @@ namespace CoreECS.Managers
         /// </summary>
         public override void Rearrange()
         {
-            m_markedCleanupPos.Sort();
-            for (var i = 0; i < m_markedCleanupPos.Count; i++)
+            var cleanupCount = m_markedCleanupPos.Count;
+            if (cleanupCount == 0) return;
+            if (cleanupCount > 1) m_markedCleanupPos.Sort();
+
+            for (var i = 0; i < cleanupCount; i++)
             {
                 var emptyPos = m_markedCleanupPos[^(i + 1)];
                 var lastPos = Allocated - 1 - i;
@@ -498,7 +501,7 @@ namespace CoreECS.Managers
                 gs.RefCore.Relocate(emptyPos);
             }
 
-            Allocated -= m_markedCleanupPos.Count;
+            Allocated -= cleanupCount;
             m_markedCleanupPos.Clear();
         }
 
@@ -663,6 +666,8 @@ namespace CoreECS.Managers
         /// <param name="entityId">Entity that owns the component</param>
         private void _onComponentChanged(IComponentRefCore core, ulong entityId)
         {
+            if (!OnComponentChanged.HasReceivers) return;
+
             OnComponentChanged.Emit(core, entityId, core.RefLocator.GetT(), _changeEmitter);
         }
 
@@ -707,13 +712,14 @@ namespace CoreECS.Managers
         /// <param name="core">The core reference of the component to destroy</param>
         public void DestroyComponent(IComponentRefCore core)
         {
-            if (core.RefLocator == null)
+            var locator = core.RefLocator;
+            if (locator == null)
                 throw new InvalidOperationException("Component has already been destroyed!");
 
             var idx = core.Offset;
-            var store = GetComponentStore(core.RefLocator.GetT());
-            var entityId = store.RefLocator.GetEntityId(idx);
-            var compType = core.RefLocator.GetT();
+            var compType = locator.GetT();
+            var store = GetComponentStore(compType);
+            var entityId = locator.GetEntityId(idx);
             
             if (store.Release(idx)) OnComponentRemoved.Emit(core, entityId, compType, _rmEmitter);
         }

@@ -297,10 +297,12 @@ namespace CoreECS.Defines
         {
             get 
             {
-                if (Core?.RefLocator == null || !Core.RefLocator.NotNull(Core.Version, Core.Offset))
+                var core = Core;
+                var locator = core?.RefLocator;
+                if (locator == null || !locator.NotNull(core.Version, core.Offset))
                     throw new NullReferenceException("Component Reference is cut.");
             
-                return ref Core.RefLocator.Get<T>(Core.Offset);
+                return ref locator.Get<T>(core.Offset);
             }
         }
         
@@ -313,12 +315,14 @@ namespace CoreECS.Defines
         {
             get 
             {
-                if (Core?.RefLocator == null || !Core.RefLocator.NotNull(Core.Version, Core.Offset))
+                var core = Core;
+                var locator = core?.RefLocator;
+                if (locator == null || !locator.NotNull(core.Version, core.Offset))
                     throw new NullReferenceException("Component Reference is cut.");
 
-                var offset = Core.Offset;
-                Core.RefLocator.ChangeRevision(offset);
-                return ref Core.RefLocator.Get<T>(offset);
+                var offset = core.Offset;
+                locator.ChangeRevision(offset);
+                return ref locator.Get<T>(offset);
             }
         }
         
