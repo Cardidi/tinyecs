@@ -228,7 +228,7 @@ namespace CoreECS.Managers
                 if (offset >= m_store.Allocated) return false;
                 ref var g = ref m_store.m_components[offset];
                 
-                return g.Version == version;
+                return g.Entity != 0 && g.Version == version;
             }
 
             /// <summary>
@@ -297,6 +297,7 @@ namespace CoreECS.Managers
             {
                 if (offset >= m_store.Allocated) return null;
                 ref var gs = ref m_store.m_components[offset];
+                if (gs.Entity == 0) return null;
 
                 return gs.RefCore;
             }
@@ -311,6 +312,7 @@ namespace CoreECS.Managers
             {
                 if (offset >= m_store.Allocated) return 0;
                 ref var gs = ref m_store.m_components[offset];
+                if (gs.Entity == 0) return 0;
 
                 return gs.Revision;
             }
@@ -324,6 +326,7 @@ namespace CoreECS.Managers
             {
                 if (offset >= m_store.Allocated) return 0;
                 ref var gs = ref m_store.m_components[offset];
+                if (gs.Entity == 0) return 0;
 
                 gs.Revision = (gs.Revision % uint.MaxValue) + 1;
                 m_store.m_revisionChanged?.Invoke(gs.RefCore, gs.Entity);
@@ -355,11 +358,6 @@ namespace CoreECS.Managers
         /// </summary>
         private Group[] m_components;
         
-        /// <summary>
-        /// Released but unfreed entity ID.
-        /// </summary>
-        private List<int> m_markedCleanupPos;
-
         /// <summary>
         /// Gets the reference locator of this store.
         /// </summary>
@@ -452,7 +450,7 @@ namespace CoreECS.Managers
 
         /// <summary>
         /// Releases a component in this store at the specified position.
-        /// Uses a swap-with-last strategy to maintain a compact array.
+        /// Marks the component slot as invalid so it can be compacted on the next rearrange.
         /// </summary>
         /// <param name="pos">The position of the component to release</param>
         /// <returns>True if the component was successfully released, false otherwise</returns>
@@ -476,8 +474,6 @@ namespace CoreECS.Managers
             posGs.Entity = 0;
             ComponentRefCore.Pool.Release(posGs.RefCore);
             posGs.RefCore = null;
-            
-            m_markedCleanupPos.Add(pos);
             return true;
         }
 
@@ -486,20 +482,22 @@ namespace CoreECS.Managers
         /// </summary>
         public override void Rearrange()
         {
-            m_markedCleanupPos.Sort();
-            for (var i = 0; i < m_markedCleanupPos.Count; i++)
+            var writePos = 0;
+            for (var readPos = 0; readPos < Allocated; readPos++)
             {
-                var emptyPos = m_markedCleanupPos[^(i + 1)];
-                var lastPos = Allocated - 1 - i;
-                if (emptyPos >= lastPos) continue;
-                
-                m_components[emptyPos] = m_components[lastPos];
-                ref var gs = ref m_components[emptyPos];
-                gs.RefCore.Relocate(emptyPos);
+                if (m_components[readPos].Entity == 0) continue;
+
+                if (writePos != readPos)
+                {
+                    m_components[writePos] = m_components[readPos];
+                    ref var gs = ref m_components[writePos];
+                    gs.RefCore?.Relocate(writePos);
+                }
+
+                writePos += 1;
             }
 
-            Allocated -= m_markedCleanupPos.Count;
-            m_markedCleanupPos.Clear();
+            Allocated = writePos;
         }
 
         /// <summary>
@@ -534,7 +532,6 @@ namespace CoreECS.Managers
         public ComponentStore(int initialSize = 100, float autoIncreaseRate = 2, float autoIncreaseTriggerEdge = 1.2f)
         {
             m_components = new Group[initialSize];
-            m_markedCleanupPos = new(initialSize);
             AutoIncreaseRate = autoIncreaseRate;
             AutoIncreaseTriggerEdge = autoIncreaseTriggerEdge;
         }
@@ -545,7 +542,6 @@ namespace CoreECS.Managers
         public ComponentStore()
         {
             m_components = new Group[100];
-            m_markedCleanupPos = new(100);
             AutoIncreaseRate = 2;
             AutoIncreaseTriggerEdge = 1.2f;
         }

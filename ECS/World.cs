@@ -201,7 +201,7 @@ namespace CoreECS
         }
 
         /// <summary>
-        /// Collects the entity IDs of all live entities that currently have a <typeparamref name="TComp"/> instance,
+        /// Collects the non-zero entity IDs that currently have a <typeparamref name="TComp"/> instance,
         /// and appends each ID to <paramref name="result"/>.
         /// </summary>
         /// <typeparam name="TComp">The component type to query; must be a struct implementing <see cref="IComponent{TComp}"/>.</typeparam>
@@ -212,27 +212,24 @@ namespace CoreECS
         {
             Assertion.IsTrue(Ready, "World is not ready");
             
-            if (Entity == null || Component == null)
+            if (Component == null)
                 throw new InvalidOperationException("Core ECS managers are not available");
 
             var store = Component.GetComponentStore<TComp>();
             var ds = store.ComponentGroups;
             var count = store.Allocated;
-            var broken = 0;
+            var added = 0;
 
             for (var i = 0; i < count; i++)
             {
                 var entityId = ds[i].Entity;
-                if (Entity.GetEntity(entityId) == null)
-                {
-                    broken += 1;
-                    continue;
-                }
+                if (entityId == 0) continue;
 
                 result.Add(entityId);
+                added += 1;
             }
             
-            return count - broken;
+            return added;
         }
 
         /// <summary>
@@ -258,7 +255,13 @@ namespace CoreECS
 
             for (var i = 0; i < count; i++)
             {
-                var entityId = ds[i].Entity;                
+                var entityId = ds[i].Entity;
+                if (entityId == 0)
+                {
+                    broken += 1;
+                    continue;
+                }
+
                 var entityGraph = Entity.GetEntity(entityId);
                 if (entityGraph == null)
                 {
