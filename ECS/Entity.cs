@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using CoreECS.Defines;
 using CoreECS.Managers;
 using CoreECS.Utils;
@@ -255,26 +256,55 @@ namespace CoreECS
 
         #region Equality
 
+        /// <summary>
+        /// Determines whether this entity represents the same entity identity as another entity.
+        /// </summary>
+        /// <param name="other">The entity to compare with this entity</param>
+        /// <returns>True when both entities belong to the same world and have the same ID and generation</returns>
         public bool Equals(Entity other)
         {
-            return m_entityId == other.m_entityId && m_generation == other.m_generation;
+            return ReferenceEquals(m_world, other.m_world) &&
+                   m_entityId == other.m_entityId &&
+                   m_generation == other.m_generation;
         }
 
+        /// <summary>
+        /// Determines whether this entity represents the same entity identity as another object.
+        /// </summary>
+        /// <param name="obj">The object to compare with this entity</param>
+        /// <returns>True when the object is an entity with the same world, ID, and generation</returns>
         public override bool Equals(object obj)
         {
             return obj is Entity other && Equals(other);
         }
 
+        /// <summary>
+        /// Gets a hash code for this entity identity.
+        /// </summary>
+        /// <returns>A hash code based on world identity, entity ID, and generation</returns>
         public override int GetHashCode()
         {
-            return HashCode.Combine(m_entityId, m_generation);
+            var worldHash = m_world == null ? 0 : RuntimeHelpers.GetHashCode(m_world);
+            return HashCode.Combine(worldHash, m_entityId, m_generation);
         }
 
+        /// <summary>
+        /// Determines whether two entities represent the same entity identity.
+        /// </summary>
+        /// <param name="left">The first entity to compare</param>
+        /// <param name="right">The second entity to compare</param>
+        /// <returns>True when both entities belong to the same world and have the same ID and generation</returns>
         public static bool operator ==(Entity left, Entity right)
         {
             return left.Equals(right);
         }
 
+        /// <summary>
+        /// Determines whether two entities represent different entity identities.
+        /// </summary>
+        /// <param name="left">The first entity to compare</param>
+        /// <param name="right">The second entity to compare</param>
+        /// <returns>True when the entities differ by world, ID, or generation</returns>
         public static bool operator !=(Entity left, Entity right)
         {
             return !left.Equals(right);
