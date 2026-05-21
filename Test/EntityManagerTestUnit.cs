@@ -83,25 +83,34 @@ namespace CoreECS.Test
         }
         
         [Test]
-        public void EntityManager_DestroyEntity_ClearsComponentsAndSetsWishDestroy()
+        public void EntityManager_DestroyEntity_ReleasesComponentsAndMarksWishDestroyDuringNotification()
         {
             // Arrange
-            var entityGraph = _entityManager.CreateEntity(0);
-            var entityId = entityGraph.EntityId;
-            
-            // Add some mock components to the entity graph
-            var mockComponent = new ComponentRefCore(new MockComponentRefLocator(), 0, 1);
-            entityGraph.RwComponents.Add(mockComponent);
-            
-            // Verify components were added
+            var entity = _world.CreateEntity();
+            var entityGraph = _entityManager.GetEntity(entity.EntityId);
+            var componentRef = entity.CreateComponent<PositionComponent>();
+            var notifiedDestroyed = false;
+            var notifiedWishDestroy = false;
+            var notifiedComponentCount = -1;
+
+            _entityManager.OnEntityLoseComp.Add((graph, type) => {
+                if (type != null) return;
+                notifiedDestroyed = true;
+                notifiedWishDestroy = graph.WishDestroy;
+                notifiedComponentCount = graph.RwComponents.Count;
+            });
+
             Assert.AreEqual(1, entityGraph.RwComponents.Count);
             
             // Act
-            _entityManager.DestroyEntity(entityId);
+            _entityManager.DestroyEntity(entity.EntityId);
             
             // Assert
             Assert.AreEqual(0, entityGraph.RwComponents.Count);
-            Assert.IsFalse(entityGraph.WishDestroy);
+            Assert.IsFalse(componentRef.NotNull);
+            Assert.IsTrue(notifiedDestroyed);
+            Assert.IsTrue(notifiedWishDestroy);
+            Assert.AreEqual(0, notifiedComponentCount);
         }
         
         [Test]

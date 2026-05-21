@@ -191,22 +191,32 @@ namespace CoreECS.Test
             // Arrange
             var world = new World();
             world.Startup();
+            LifecycleComponent.ResetTracking();
             
             var entity = world.CreateEntity();
+            var entityId = entity.EntityId;
+            var componentManager = world.GetManager<ComponentManager>();
             
             // Act
             var componentRef = entity.CreateComponent<LifecycleComponent>();
+            var store = componentManager.GetComponentStore<LifecycleComponent>(false);
             
             // Assert
             Assert.IsTrue(componentRef.RW.OnCreateCalled);
             Assert.IsFalse(componentRef.RW.OnDestroyCalled);
+            Assert.AreEqual(1, LifecycleComponent.OnCreateCount);
+            Assert.AreEqual(entityId, LifecycleComponent.LastCreatedEntityId);
+            Assert.AreEqual(1, store.Allocated);
             
             // Act
             world.DestroyEntity(entity);
+            componentManager.CleanupComponents();
             
             // Assert
-            // Note: In a real implementation, we would need to verify that OnDestroy was called
-            // This might require a more complex setup with event tracking
+            Assert.IsFalse(componentRef.NotNull);
+            Assert.AreEqual(1, LifecycleComponent.OnDestroyCount);
+            Assert.AreEqual(entityId, LifecycleComponent.LastDestroyedEntityId);
+            Assert.AreEqual(0, store.Allocated);
             
             // Cleanup
             world.Shutdown();
@@ -242,16 +252,33 @@ namespace CoreECS.Test
         
         private struct LifecycleComponent : IComponent<LifecycleComponent>
         {
+            public static int OnCreateCount;
+            public static int OnDestroyCount;
+            public static ulong LastCreatedEntityId;
+            public static ulong LastDestroyedEntityId;
+            
             public bool OnCreateCalled;
             public bool OnDestroyCalled;
             
+            public static void ResetTracking()
+            {
+                OnCreateCount = 0;
+                OnDestroyCount = 0;
+                LastCreatedEntityId = 0;
+                LastDestroyedEntityId = 0;
+            }
+            
             public void OnCreate(ulong entityId)
             {
+                OnCreateCount += 1;
+                LastCreatedEntityId = entityId;
                 OnCreateCalled = true;
             }
             
             public void OnDestroy(ulong entityId)
             {
+                OnDestroyCount += 1;
+                LastDestroyedEntityId = entityId;
                 OnDestroyCalled = true;
             }
         }
