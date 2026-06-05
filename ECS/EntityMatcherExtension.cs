@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using CoreECS.Defines;
 
 namespace CoreECS
@@ -451,6 +452,38 @@ namespace CoreECS
             World world, EntityCollectorFlag flag = EntityCollectorFlag.Default)
         {
             return world.CreateCollector(matcher, flag);
+        }
+
+        /// <summary>
+        /// Appends IDs of entities that match <paramref name="matcher"/> to <paramref name="result"/>.
+        /// Existing items in <paramref name="result"/> are preserved.
+        /// </summary>
+        /// <param name="matcher">Matcher used to filter entities.</param>
+        /// <param name="world">World that owns queried entities.</param>
+        /// <param name="result">Target non-alloc output collection.</param>
+        /// <returns>The number of IDs appended.</returns>
+        /// <exception cref="System.InvalidOperationException">Thrown when the world is not ready or managers are unavailable.</exception>
+        /// <exception cref="System.ArgumentNullException">Thrown when matcher, world, or result is null.</exception>
+        public static int Query(this IEntityMatcher matcher, World world, ICollection<ulong> result)
+        {
+            CoreECS.Utils.Assertion.ArgumentNotNull(world, nameof(world));
+            return world.Query(matcher, result);
+        }
+
+        /// <summary>
+        /// Appends entities that match <paramref name="matcher"/> to <paramref name="result"/>.
+        /// Existing items in <paramref name="result"/> are preserved.
+        /// </summary>
+        /// <param name="matcher">Matcher used to filter entities.</param>
+        /// <param name="world">World that owns queried entities.</param>
+        /// <param name="result">Target non-alloc output collection.</param>
+        /// <returns>The number of entities appended.</returns>
+        /// <exception cref="System.InvalidOperationException">Thrown when the world is not ready or managers are unavailable.</exception>
+        /// <exception cref="System.ArgumentNullException">Thrown when matcher, world, or result is null.</exception>
+        public static int Query(this IEntityMatcher matcher, World world, ICollection<Entity> result)
+        {
+            CoreECS.Utils.Assertion.ArgumentNotNull(world, nameof(world));
+            return world.Query(matcher, result);
         }
     }
 }

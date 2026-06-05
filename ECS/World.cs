@@ -201,78 +201,63 @@ namespace CoreECS
         }
 
         /// <summary>
-        /// Collects the non-zero entity IDs that currently have a <typeparamref name="TComp"/> instance,
-        /// and appends each ID to <paramref name="result"/>.
+        /// Appends entity IDs that match the specified matcher to <paramref name="result"/>.
+        /// Existing items in <paramref name="result"/> are preserved.
         /// </summary>
-        /// <typeparam name="TComp">The component type to query; must be a struct implementing <see cref="IComponent{TComp}"/>.</typeparam>
-        /// <param name="result">The collection to append entity IDs to. Existing contents are not cleared.</param>
-        /// <returns>The number of entity IDs appended to <paramref name="result"/>.</returns>
-        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or the component manager is not available.</exception>
-        public int GetEntitiesWithComponent<TComp>(ICollection<ulong> result) where TComp : struct, IComponent<TComp>
+        /// <param name="matcher">Matcher that defines the query conditions.</param>
+        /// <param name="result">Target collection used as non-alloc output.</param>
+        /// <returns>The number of matched entities appended to <paramref name="result"/>.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or managers are unavailable.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="matcher"/> or <paramref name="result"/> is null.</exception>
+        public int Query(IEntityMatcher matcher, ICollection<ulong> result)
         {
             Assertion.IsTrue(Ready, "World is not ready");
+            Assertion.ArgumentNotNull(matcher, nameof(matcher));
+            Assertion.ArgumentNotNull(result, nameof(result));
             
-            if (Component == null)
+            if (Entity == null)
                 throw new InvalidOperationException("Core ECS managers are not available");
 
-            var store = Component.GetComponentStore<TComp>();
-            var ds = store.ComponentGroups;
-            var count = store.Allocated;
             var added = 0;
-
-            for (var i = 0; i < count; i++)
+            foreach (var entityGraph in Entity.EntityCaches.Values)
             {
-                var entityId = ds[i].Entity;
-                if (entityId == 0) continue;
-
-                result.Add(entityId);
+                if (!_isMatched(entityGraph, matcher)) continue;
+                
+                result.Add(entityGraph.EntityId);
                 added += 1;
             }
-            
+
             return added;
         }
 
         /// <summary>
-        /// Collects <see cref="Entity"/> handles for all entities that currently have an allocated <typeparamref name="TComp"/>
-        /// instance in the component store, and appends each valid handle to <paramref name="result"/>.
-        /// Store entries that no longer resolve to a live entity graph are skipped.
+        /// Appends entity handles that match the specified matcher to <paramref name="result"/>.
+        /// Existing items in <paramref name="result"/> are preserved.
         /// </summary>
-        /// <typeparam name="TComp">The component type to query; must be a struct implementing <see cref="IComponent{TComp}"/>.</typeparam>
-        /// <param name="result">The collection to append <see cref="Entity"/> values to. Existing contents are not cleared.</param>
-        /// <returns>The number of <see cref="Entity"/> values appended to <paramref name="result"/>.</returns>
-        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or the component manager is not available.</exception>
-        public int GetEntitiesWithComponent<TComp>(ICollection<Entity> result) where TComp : struct, IComponent<TComp>
+        /// <param name="matcher">Matcher that defines the query conditions.</param>
+        /// <param name="result">Target collection used as non-alloc output.</param>
+        /// <returns>The number of matched entities appended to <paramref name="result"/>.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or managers are unavailable.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="matcher"/> or <paramref name="result"/> is null.</exception>
+        public int Query(IEntityMatcher matcher, ICollection<Entity> result)
         {
             Assertion.IsTrue(Ready, "World is not ready");
+            Assertion.ArgumentNotNull(matcher, nameof(matcher));
+            Assertion.ArgumentNotNull(result, nameof(result));
             
             if (Entity == null || Component == null)
                 throw new InvalidOperationException("Core ECS managers are not available");
 
-            var store = Component.GetComponentStore<TComp>();
-            var ds = store.ComponentGroups;
-            var count = store.Allocated;
-            var broken = 0;
-
-            for (var i = 0; i < count; i++)
+            var added = 0;
+            foreach (var entityGraph in Entity.EntityCaches.Values)
             {
-                var entityId = ds[i].Entity;
-                if (entityId == 0)
-                {
-                    broken += 1;
-                    continue;
-                }
-
-                var entityGraph = Entity.GetEntity(entityId);
-                if (entityGraph == null)
-                {
-                    broken += 1;
-                    continue;
-                }
+                if (!_isMatched(entityGraph, matcher)) continue;
                 
-                result.Add(new Entity(this, entityId, entityGraph.Generation, Entity, Component));
+                result.Add(new Entity(this, entityGraph.EntityId, entityGraph.Generation, Entity, Component));
+                added += 1;
             }
-            
-            return count - broken;
+
+            return added;
         }
 
         /// <summary>
@@ -353,6 +338,16 @@ namespace CoreECS
                 throw new InvalidOperationException("Core ECS managers are not available");
             
             return EntityMatch.MakeCollector(flag, matcher);
+        }
+
+        /// <summary>
+        /// Shared matcher gate for world-level non-alloc entity queries.
+        /// </summary>
+        private static bool _isMatched(EntityGraph entityGraph, IEntityMatcher matcher)
+        {
+            if ((matcher.EntityMask & entityGraph.Mask) == 0) return false;
+            if (entityGraph.WishDestroy) return false;
+            return matcher.ComponentFilter(entityGraph.RwComponents);
         }
 
         #endregion
