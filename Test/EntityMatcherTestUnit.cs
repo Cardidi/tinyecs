@@ -1,5 +1,4 @@
 using CoreECS.Defines;
-using CoreECS.Managers;
 
 namespace CoreECS.Test
 {
@@ -37,23 +36,14 @@ namespace CoreECS.Test
             var matcher = EntityMatcher.With.OfAll<PositionComponent>();
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert
             Assert.AreEqual(2, matchedEntities.Count);
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity1.EntityId));
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity2.EntityId));
-            Assert.IsFalse(matchedEntities.Exists(e => e.EntityId == entity3.EntityId));
+            CollectionAssert.Contains(matchedEntities, entity1.EntityId);
+            CollectionAssert.Contains(matchedEntities, entity2.EntityId);
+            CollectionAssert.DoesNotContain(matchedEntities, entity3.EntityId);
         }
         
         [Test]
@@ -71,23 +61,14 @@ namespace CoreECS.Test
             var matcher = EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>();
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert
             Assert.AreEqual(2, matchedEntities.Count);
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity1.EntityId));
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity2.EntityId));
-            Assert.IsFalse(matchedEntities.Exists(e => e.EntityId == entity3.EntityId));
+            CollectionAssert.Contains(matchedEntities, entity1.EntityId);
+            CollectionAssert.Contains(matchedEntities, entity2.EntityId);
+            CollectionAssert.DoesNotContain(matchedEntities, entity3.EntityId);
         }
         
         [Test]
@@ -106,23 +87,14 @@ namespace CoreECS.Test
             var matcher = EntityMatcher.With.OfAll<PositionComponent>().OfNone<VelocityComponent>();
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert
             Assert.AreEqual(1, matchedEntities.Count);
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity1.EntityId));
-            Assert.IsFalse(matchedEntities.Exists(e => e.EntityId == entity2.EntityId));
-            Assert.IsFalse(matchedEntities.Exists(e => e.EntityId == entity3.EntityId));
+            CollectionAssert.Contains(matchedEntities, entity1.EntityId);
+            CollectionAssert.DoesNotContain(matchedEntities, entity2.EntityId);
+            CollectionAssert.DoesNotContain(matchedEntities, entity3.EntityId);
         }
         
         [Test]
@@ -136,23 +108,14 @@ namespace CoreECS.Test
             var matcher = EntityMatcher.WithMask(0b0001); // Match entities with bit 0 set
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if ((entity.Mask & matcher.EntityMask) == matcher.EntityMask)
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert
             Assert.AreEqual(2, matchedEntities.Count);
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity1.EntityId));
-            Assert.IsFalse(matchedEntities.Exists(e => e.EntityId == entity2.EntityId));
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity3.EntityId));
+            CollectionAssert.Contains(matchedEntities, entity1.EntityId);
+            CollectionAssert.DoesNotContain(matchedEntities, entity2.EntityId);
+            CollectionAssert.Contains(matchedEntities, entity3.EntityId);
         }
         
         [Test]
@@ -244,17 +207,8 @@ namespace CoreECS.Test
             var matcher = EntityMatcher.With.OfAny<PositionComponent>().OfAny<VelocityComponent>().OfAny<HealthComponent>();
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert
             Assert.AreEqual(4, matchedEntities.Count); // All entities should match
@@ -278,21 +232,12 @@ namespace CoreECS.Test
             var matcher = EntityMatcher.With.OfNone<PositionComponent>().OfNone<VelocityComponent>();
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert
             Assert.AreEqual(1, matchedEntities.Count); // Only entity3 should match
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity3.EntityId));
+            CollectionAssert.Contains(matchedEntities, entity3.EntityId);
         }
         
         [Test]
@@ -332,17 +277,8 @@ namespace CoreECS.Test
                 .OfNone<HealthComponent>();
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert - Only entities with Position AND (Velocity OR Health) BUT NOT both should match
             // Since OfNone excludes entities with either component, no entities should match
@@ -384,21 +320,12 @@ namespace CoreECS.Test
                 .OfNone<HealthComponent>();
             
             // Act
-            var entityManager = _world.GetManager<EntityManager>();
-            var matchedEntities = new List<Entity>();
-            
-            foreach (var kvp in entityManager.EntityCaches)
-            {
-                var entity = new Entity(_world, kvp.Key, kvp.Value.Generation);
-                if (matcher.ComponentFilter(kvp.Value.GetComponents().Select(x => x.Core).ToArray()))
-                {
-                    matchedEntities.Add(entity);
-                }
-            }
+            var matchedEntities = new List<ulong>();
+            _world.Query(matcher, matchedEntities);
             
             // Assert - Only entity2 should match (has Position and Velocity but not Health)
             Assert.AreEqual(1, matchedEntities.Count);
-            Assert.IsTrue(matchedEntities.Exists(e => e.EntityId == entity2.EntityId));
+            CollectionAssert.Contains(matchedEntities, entity2.EntityId);
         }
         
         [Test]
