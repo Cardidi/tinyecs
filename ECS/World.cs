@@ -207,7 +207,7 @@ namespace CoreECS
         /// <param name="matcher">Matcher that defines the query conditions.</param>
         /// <param name="result">Target collection used as non-alloc output.</param>
         /// <returns>The number of matched entities appended to <paramref name="result"/>.</returns>
-        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or managers are unavailable.</exception>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or the entity manager is unavailable.</exception>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="matcher"/> or <paramref name="result"/> is null.</exception>
         public int Query(IEntityMatcher matcher, ICollection<ulong> result)
         {
@@ -237,7 +237,7 @@ namespace CoreECS
         /// <param name="matcher">Matcher that defines the query conditions.</param>
         /// <param name="result">Target collection used as non-alloc output.</param>
         /// <returns>The number of matched entities appended to <paramref name="result"/>.</returns>
-        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or managers are unavailable.</exception>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or required managers are unavailable.</exception>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="matcher"/> or <paramref name="result"/> is null.</exception>
         public int Query(IEntityMatcher matcher, ICollection<Entity> result)
         {

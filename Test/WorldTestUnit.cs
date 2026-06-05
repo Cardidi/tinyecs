@@ -380,6 +380,28 @@ namespace CoreECS.Test
         }
 
         [Test]
+        public void World_Query_Ulong_DoesNotReturnDestroyedEntities()
+        {
+            var world = new World();
+            world.Startup();
+
+            var alive = world.CreateEntity();
+            var destroyed = world.CreateEntity();
+            alive.CreateComponent<PositionComponent>();
+            destroyed.CreateComponent<PositionComponent>();
+            world.DestroyEntity(destroyed);
+
+            var ids = new List<ulong>();
+            var returned = world.Query(EntityMatcher.With.OfAll<PositionComponent>(), ids);
+
+            Assert.AreEqual(1, returned);
+            CollectionAssert.AreEqual(new[] { alive.EntityId }, ids);
+            CollectionAssert.DoesNotContain(ids, destroyed.EntityId);
+
+            world.Shutdown();
+        }
+
+        [Test]
         public void World_Query_ThrowsWhenWorldNotReady_UlongCollection()
         {
             var world = new World();
@@ -420,6 +442,43 @@ namespace CoreECS.Test
             Assert.Throws<ArgumentNullException>(() => world.Query(matcher, (ICollection<Entity>)null));
 
             world.Shutdown();
+        }
+
+        [Test]
+        public void EntityMatcherExtension_Query_DelegatesToWorldQuery()
+        {
+            var world = new World();
+            world.Startup();
+
+            var e1 = world.CreateEntity();
+            var e2 = world.CreateEntity();
+            e1.CreateComponent<PositionComponent>();
+            e2.CreateComponent<VelocityComponent>();
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+
+            var ids = new List<ulong>();
+            var idCount = matcher.Query(world, ids);
+            Assert.AreEqual(1, idCount);
+            CollectionAssert.AreEqual(new[] { e1.EntityId }, ids);
+
+            var entities = new List<Entity>();
+            var entityCount = matcher.Query(world, entities);
+            Assert.AreEqual(1, entityCount);
+            Assert.AreEqual(e1.EntityId, entities[0].EntityId);
+            Assert.IsTrue(entities[0].IsValid);
+
+            world.Shutdown();
+        }
+
+        [Test]
+        public void EntityMatcherExtension_Query_ThrowsWhenWorldIsNull()
+        {
+            var matcher = EntityMatcher.With.OfAll<PositionComponent>();
+
+            Assert.Throws<ArgumentNullException>(() =>
+                matcher.Query((World)null, new List<ulong>()));
+            Assert.Throws<ArgumentNullException>(() =>
+                matcher.Query((World)null, new List<Entity>()));
         }
         
         [Test]
