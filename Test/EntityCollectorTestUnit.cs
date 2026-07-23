@@ -1,4 +1,5 @@
 using CoreECS.Defines;
+using CoreECS.Managers;
 
 namespace CoreECS.Test
 {
@@ -79,6 +80,66 @@ namespace CoreECS.Test
             AssertEmpty(collector.Clashing);
             AssertOnly(collector.Collected, entity.EntityId);
             AssertOnly(collector.Changed, entity.EntityId);
+        }
+
+        [Test]
+        public void EntityCollector_DenseSecondInstance_StaysMatchedAfterMigrate()
+        {
+            var entity = _world.CreateEntity();
+            entity.CreateComponent<DenseProbe>();
+            var collector = _world.CreateCollector(EntityMatcher.With.OfAll<DenseProbe>());
+            collector.Flush();
+            collector.Flush();
+
+            entity.CreateComponent<DenseProbe>();
+            collector.Flush();
+
+            AssertEmpty(collector.Matching);
+            AssertEmpty(collector.Clashing);
+            AssertOnly(collector.Collected, entity.EntityId);
+            AssertOnly(collector.Changed, entity.EntityId);
+        }
+
+        [Test]
+        public void EntityCollector_SparseAdd_PublishesOnlyAfterFlush()
+        {
+            var entity = _world.CreateEntity();
+            var collector = _world.CreateCollector(EntityMatcher.With.OfAll<SparseProbe>());
+            var beforeChange = new CollectorSnapshot(collector);
+
+            entity.CreateComponent<SparseProbe>();
+
+            beforeChange.AssertMatches(collector, "sparse component add must remain pending before Flush");
+
+            collector.Flush();
+
+            AssertOnly(collector.Matching, entity.EntityId);
+            AssertEmpty(collector.Clashing);
+            AssertOnly(collector.Collected, entity.EntityId);
+            AssertOnly(collector.Changed, entity.EntityId);
+        }
+
+        [Test]
+        public void EntityCollector_SparseOnlyMatcher_IgnoresIrrelevantDenseMigrate()
+        {
+            var entity = _world.CreateEntity();
+            entity.CreateComponent<SparseProbe>();
+            var matcher = new SparseOnlyCountingMatcher();
+            var collector = _world.CreateCollector(matcher);
+            collector.Flush();
+            collector.Flush();
+            matcher.MatchCallCount = 0;
+            var beforeChange = new CollectorSnapshot(collector);
+
+            entity.CreateComponent<DenseProbe>();
+
+            beforeChange.AssertMatches(collector, "irrelevant dense migrate must remain pending before Flush");
+            Assert.AreEqual(0, matcher.MatchCallCount);
+
+            collector.Flush();
+
+            AssertOnly(collector.Collected, entity.EntityId);
+            AssertEmpty(collector.Changed);
         }
 
         [Test]
@@ -1707,6 +1768,36 @@ namespace CoreECS.Test
                 CollectionAssert.AreEqual(m_clashing, new List<ulong>(collector.Clashing), message);
                 CollectionAssert.AreEqual(m_changed, new List<ulong>(collector.Changed), message);
             }
+        }
+
+        private sealed class SparseOnlyCountingMatcher : IEntityMatcher
+        {
+            public int MatchCallCount;
+
+            [Obsolete("Use Matches(ArchetypeSignature, SparseSetProxy).")]
+            public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components)
+            {
+                foreach (var component in components)
+                {
+                    if (component.RefLocator != null && component.RefLocator.IsT(typeof(SparseProbe)))
+                        return true;
+                }
+
+                return false;
+            }
+
+            public bool Matches(ArchetypeSignature denseSignature, SparseSetProxy sparseProxy)
+            {
+                MatchCallCount += 1;
+                return sparseProxy != null && sparseProxy.Has(typeof(SparseProbe));
+            }
+
+            public bool IsRelevantComponent(Type componentType)
+            {
+                return componentType == typeof(SparseProbe);
+            }
+
+            public ulong EntityMask => ulong.MaxValue;
         }
 
         private struct PositionComponent : IComponent<PositionComponent>
