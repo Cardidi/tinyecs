@@ -643,6 +643,11 @@ namespace CoreECS.Managers
         public Signal<ComponentChanged> OnComponentChanged { get; } = new();
 
         /// <summary>
+        /// Gets the registry of dense archetypes used for query iteration.
+        /// </summary>
+        internal ArchetypeRegistry ArchetypeRegistry => m_registry;
+
+        /// <summary>
         /// Gets all component stores in this manager.
         /// </summary>
         /// <returns>An enumerable of all component stores</returns>

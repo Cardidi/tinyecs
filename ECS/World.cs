@@ -201,6 +201,25 @@ namespace CoreECS
         }
 
         /// <summary>
+        /// Creates a streaming query over entities that match the specified matcher.
+        /// Enumeration read-locks candidate archetypes until the enumerator is disposed.
+        /// </summary>
+        /// <param name="matcher">Matcher that defines the query conditions.</param>
+        /// <returns>A streaming entity query.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or required managers are unavailable.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="matcher"/> is null.</exception>
+        public EntityQuery Query(IEntityMatcher matcher)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+            Assertion.ArgumentNotNull(matcher, nameof(matcher));
+
+            if (Entity == null || Component == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
+
+            return new EntityQuery(this, matcher, Entity, Component);
+        }
+
+        /// <summary>
         /// Appends entity IDs that match the specified matcher to <paramref name="result"/>.
         /// Existing items in <paramref name="result"/> are preserved.
         /// </summary>
@@ -215,15 +234,10 @@ namespace CoreECS
             Assertion.ArgumentNotNull(matcher, nameof(matcher));
             Assertion.ArgumentNotNull(result, nameof(result));
             
-            if (Entity == null)
-                throw new InvalidOperationException("Core ECS managers are not available");
-
             var added = 0;
-            foreach (var entityGraph in Entity.EntityCaches.Values)
+            foreach (var entity in Query(matcher))
             {
-                if (!_isMatched(entityGraph, matcher)) continue;
-                
-                result.Add(entityGraph.EntityId);
+                result.Add(entity.EntityId);
                 added += 1;
             }
 
@@ -245,15 +259,10 @@ namespace CoreECS
             Assertion.ArgumentNotNull(matcher, nameof(matcher));
             Assertion.ArgumentNotNull(result, nameof(result));
             
-            if (Entity == null || Component == null)
-                throw new InvalidOperationException("Core ECS managers are not available");
-
             var added = 0;
-            foreach (var entityGraph in Entity.EntityCaches.Values)
+            foreach (var entity in Query(matcher))
             {
-                if (!_isMatched(entityGraph, matcher)) continue;
-                
-                result.Add(new Entity(this, entityGraph.EntityId, entityGraph.Generation, Entity, Component));
+                result.Add(entity);
                 added += 1;
             }
 
@@ -338,17 +347,6 @@ namespace CoreECS
                 throw new InvalidOperationException("Core ECS managers are not available");
             
             return EntityMatch.MakeCollector(flag, matcher);
-        }
-
-        /// <summary>
-        /// Shared matcher gate for world-level non-alloc entity queries.
-        /// </summary>
-        private bool _isMatched(EntityGraph entityGraph, IEntityMatcher matcher)
-        {
-            if ((matcher.EntityMask & entityGraph.Mask) == 0) return false;
-            if (entityGraph.WishDestroy) return false;
-            Component.GetEntityMatchInputs(entityGraph.EntityId, out var signature, out var sparseProxy);
-            return matcher.Matches(signature, sparseProxy);
         }
 
         #endregion

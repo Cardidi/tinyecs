@@ -12,6 +12,8 @@ namespace CoreECS.Managers
 
         public Archetype Empty { get; }
 
+        public IReadOnlyList<Archetype> Archetypes => m_archetypes;
+
         public ArchetypeRegistry(Action<IComponentRefCore, ulong> revisionChanged = null)
         {
             m_revisionChanged = revisionChanged;

@@ -264,6 +264,37 @@ namespace CoreECS
         }
 
         /// <summary>
+        /// Determines whether a dense archetype can contain entities matching this matcher before sparse proxy checks.
+        /// </summary>
+        /// <param name="denseSignature">Dense component composition for an archetype.</param>
+        /// <returns>True when the archetype should be scanned by a streaming query.</returns>
+        internal bool CouldMatchDenseSignature(ArchetypeSignature denseSignature)
+        {
+            foreach (var type in m_noneDense)
+            {
+                if (denseSignature.Has(type))
+                    return false;
+            }
+
+            foreach (var type in m_allDense)
+            {
+                if (!denseSignature.Has(type))
+                    return false;
+            }
+
+            if (m_anyDense.Count == 0 || m_anySparse.Count > 0)
+                return true;
+
+            foreach (var type in m_anyDense)
+            {
+                if (denseSignature.Has(type))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Determines whether the specified component type is relevant
         /// to this matcher's criteria (all, any, or none sets).
         /// </summary>
