@@ -97,16 +97,16 @@ namespace CoreECS.Test
                 if (type != null) return;
                 notifiedDestroyed = true;
                 notifiedWishDestroy = graph.WishDestroy;
-                notifiedComponentCount = graph.RwComponents.Count;
+                notifiedComponentCount = _entityManager.GetComponentCores(graph.EntityId).Count;
             });
 
-            Assert.AreEqual(1, entityGraph.RwComponents.Count);
+            Assert.AreEqual(1, _entityManager.GetComponentCores(entityGraph.EntityId).Count);
             
             // Act
             _entityManager.DestroyEntity(entity.EntityId);
             
             // Assert
-            Assert.AreEqual(0, entityGraph.RwComponents.Count);
+            Assert.AreEqual(0, _entityManager.GetComponentCores(entityGraph.EntityId).Count);
             Assert.IsFalse(componentRef.NotNull);
             Assert.IsTrue(notifiedDestroyed);
             Assert.IsTrue(notifiedWishDestroy);
@@ -149,7 +149,8 @@ namespace CoreECS.Test
         public void EntityManager_ComponentAddedEvent_TriggeredWhenComponentAdded()
         {
             // Arrange
-            var entityGraph = _entityManager.CreateEntity(0);
+            var entity = _world.CreateEntity();
+            var entityGraph = _entityManager.GetEntity(entity.EntityId);
             var eventTriggered = false;
             EntityGraph capturedGraph = null;
             
@@ -159,27 +160,23 @@ namespace CoreECS.Test
                 Assert.That(typeof(PositionComponent), Is.EqualTo(type));
             });
             
-            // Simulate adding a component (this happens through the component manager)
-            var mockComponent = new ComponentRefCore(new MockComponentRefLocator(), 0, 1);
-            entityGraph.RwComponents.Add(mockComponent);
-            
-            // Manually trigger the event as would happen internally
-            _entityManager.OnEntityGotComp.Emit(in entityGraph, typeof(PositionComponent), 
-                static (h, g, c) => h(g, c));
+            // Act
+            entity.CreateComponent<PositionComponent>();
             
             // Assert
             Assert.IsTrue(eventTriggered);
             Assert.IsNotNull(capturedGraph);
             Assert.AreEqual(entityGraph.EntityId, capturedGraph.EntityId);
+            Assert.AreEqual(1, _entityManager.GetComponentCores(entity.EntityId).Count);
         }
         
         [Test]
         public void EntityManager_ComponentRemovedEvent_TriggeredWhenComponentRemoved()
         {
             // Arrange
-            var entityGraph = _entityManager.CreateEntity(0);
-            var mockComponent = new ComponentRefCore(new MockComponentRefLocator(), 0, 1);
-            entityGraph.RwComponents.Add(mockComponent);
+            var entity = _world.CreateEntity();
+            var entityGraph = _entityManager.GetEntity(entity.EntityId);
+            var component = entity.CreateComponent<PositionComponent>();
             
             var eventTriggered = false;
             EntityGraph capturedGraph = null;
@@ -190,46 +187,41 @@ namespace CoreECS.Test
                 Assert.That(typeof(PositionComponent), Is.EqualTo(type));
             });
             
-            // Remove the component
-            entityGraph.RwComponents.Remove(mockComponent);
-            
-            // Manually trigger the event as would happen internally
-            _entityManager.OnEntityLoseComp.Emit(in entityGraph, typeof(PositionComponent), 
-                static (h, g, c) => h(g, c));
+            // Act
+            entity.DestroyComponent(component);
             
             // Assert
             Assert.IsTrue(eventTriggered);
             Assert.IsNotNull(capturedGraph);
             Assert.AreEqual(entityGraph.EntityId, capturedGraph.EntityId);
+            Assert.AreEqual(0, _entityManager.GetComponentCores(entity.EntityId).Count);
         }
         
         [Test]
         public void EntityManager_EntitiesMaintainState_AfterComponentOperations()
         {
             // Arrange
-            var entityGraph = _entityManager.CreateEntity(0b1100);
+            var entity = _world.CreateEntity(0b1100);
+            var entityGraph = _entityManager.GetEntity(entity.EntityId);
             var entityId = entityGraph.EntityId;
             
             // Verify initial state
             Assert.AreEqual(0b1100, entityGraph.Mask);
-            Assert.AreEqual(0, entityGraph.RwComponents.Count);
+            Assert.AreEqual(0, _entityManager.GetComponentCores(entityId).Count);
             
             // Act - Add some components
-            var mockComponent1 = new ComponentRefCore(new MockComponentRefLocator(), 0, 1);
-            var mockComponent2 = new ComponentRefCore(new MockComponentRefLocator(), 1, 1);
-            
-            entityGraph.RwComponents.Add(mockComponent1);
-            entityGraph.RwComponents.Add(mockComponent2);
+            var component1 = entity.CreateComponent<PositionComponent>();
+            entity.CreateComponent<VelocityComponent>();
             
             // Verify state after additions
-            Assert.AreEqual(2, entityGraph.RwComponents.Count);
+            Assert.AreEqual(2, _entityManager.GetComponentCores(entityId).Count);
             Assert.AreEqual(0b1100, entityGraph.Mask);
             
             // Remove one component
-            entityGraph.RwComponents.Remove(mockComponent1);
+            entity.DestroyComponent(component1);
             
             // Assert final state
-            Assert.AreEqual(1, entityGraph.RwComponents.Count);
+            Assert.AreEqual(1, _entityManager.GetComponentCores(entityId).Count);
             Assert.AreEqual(0b1100, entityGraph.Mask);
             Assert.IsTrue(_entityManager.EntityCaches.ContainsKey(entityId));
         }

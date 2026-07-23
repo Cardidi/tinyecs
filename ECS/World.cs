@@ -343,11 +343,11 @@ namespace CoreECS
         /// <summary>
         /// Shared matcher gate for world-level non-alloc entity queries.
         /// </summary>
-        private static bool _isMatched(EntityGraph entityGraph, IEntityMatcher matcher)
+        private bool _isMatched(EntityGraph entityGraph, IEntityMatcher matcher)
         {
             if ((matcher.EntityMask & entityGraph.Mask) == 0) return false;
             if (entityGraph.WishDestroy) return false;
-            return matcher.ComponentFilter(entityGraph.RwComponents);
+            return matcher.ComponentFilter(Entity.GetComponentCores(entityGraph.EntityId));
         }
 
         #endregion

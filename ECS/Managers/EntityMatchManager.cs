@@ -451,7 +451,8 @@ namespace CoreECS.Managers
                  collector.ContainsInBuffer(CHANGE_MATCHING_BUFFER_INDEX, entityId)) &&
                 !collector.ContainsInBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId);
             
-            var isMatched = !entityGraph.WishDestroy && matcher.ComponentFilter(entityGraph.RwComponents);
+            var isMatched = !entityGraph.WishDestroy &&
+                matcher.ComponentFilter(m_entityManager.GetComponentCores(entityId));
 
             if (!isAdd.HasValue)
             {
