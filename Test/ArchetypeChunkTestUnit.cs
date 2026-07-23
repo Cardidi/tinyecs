@@ -38,5 +38,20 @@ namespace CoreECS.Test
             Assert.AreEqual(0, registry.Empty.Signature.Entries.Count);
             Assert.AreSame(registry.Empty, registry.GetOrCreate(ArchetypeSignature.Empty));
         }
+
+        [Test]
+        public void ComponentChunk_AddAndRemoveRow_UpdatesCountAndProxy()
+        {
+            var registry = new ArchetypeRegistry();
+            var sig = ArchetypeSignature.From(new ArchetypeEntry(typeof(DenseProbe), 1));
+            var arch = registry.GetOrCreate(sig);
+            var chunk = arch.GetChunkWithSpace();
+            var row = chunk.AddRow(42UL);
+            Assert.AreEqual(42UL, chunk.EntityIds[row]);
+            Assert.IsNotNull(chunk.Proxies[row]);
+            Assert.AreEqual(0, chunk.Proxies[row].Handles.Count);
+            chunk.RemoveRowSwapBack(row);
+            Assert.AreEqual(0, chunk.Count);
+        }
     }
 }
