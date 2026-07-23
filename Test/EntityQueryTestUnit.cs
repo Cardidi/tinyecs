@@ -56,6 +56,58 @@ namespace CoreECS.Test
         }
 
         [Test]
+        public void EntityQuery_CreateEntityWhileEnumerating_ThrowsThenSucceedsAfterDispose()
+        {
+            var world = new World();
+            world.Startup();
+            try
+            {
+                // Seed one proxy-only entity so the empty archetype is a query candidate and gets read-locked.
+                world.CreateEntity();
+                var matcher = EntityMatcher.With;
+
+                var enumerator = world.Query(matcher).GetEnumerator();
+                Assert.IsTrue(enumerator.MoveNext());
+
+                // CreateEntity places the new entity into the read-locked empty archetype.
+                Assert.Throws<InvalidOperationException>(() => world.CreateEntity());
+
+                enumerator.Dispose();
+                Assert.DoesNotThrow(() => world.CreateEntity());
+            }
+            finally
+            {
+                world.Shutdown();
+            }
+        }
+
+        [Test]
+        public void EntityQuery_DestroyProxyOnlyEntityWhileEnumerating_ThrowsThenSucceedsAfterDispose()
+        {
+            var world = new World();
+            world.Startup();
+            try
+            {
+                world.CreateEntity();
+                var victim = world.CreateEntity();
+                var matcher = EntityMatcher.With;
+
+                var enumerator = world.Query(matcher).GetEnumerator();
+                Assert.IsTrue(enumerator.MoveNext());
+
+                // DestroyEntity would swap-remove a row in the read-locked empty archetype.
+                Assert.Throws<InvalidOperationException>(() => world.DestroyEntity(victim.EntityId));
+
+                enumerator.Dispose();
+                Assert.DoesNotThrow(() => world.DestroyEntity(victim.EntityId));
+            }
+            finally
+            {
+                world.Shutdown();
+            }
+        }
+
+        [Test]
         public void EntityQuery_EarlyBreak_DisposesReadLocks()
         {
             var world = new World();
