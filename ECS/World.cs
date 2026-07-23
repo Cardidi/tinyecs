@@ -347,7 +347,8 @@ namespace CoreECS
         {
             if ((matcher.EntityMask & entityGraph.Mask) == 0) return false;
             if (entityGraph.WishDestroy) return false;
-            return matcher.ComponentFilter(Entity.GetComponentCores(entityGraph.EntityId));
+            Component.GetEntityMatchInputs(entityGraph.EntityId, out var signature, out var sparseProxy);
+            return matcher.Matches(signature, sparseProxy);
         }
 
         #endregion

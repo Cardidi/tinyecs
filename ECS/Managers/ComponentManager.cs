@@ -949,6 +949,27 @@ namespace CoreECS.Managers
             return m_registry.Get(graph.ArchetypeId);
         }
 
+        /// <summary>
+        /// Resolves the dense signature and sparse proxy used to evaluate entity matchers.
+        /// </summary>
+        /// <param name="entityId">Entity whose match inputs to resolve.</param>
+        /// <param name="signature">Dense component composition for the entity's archetype row.</param>
+        /// <param name="sparseProxy">Sparse component handles attached to the entity row, or null when unplaced.</param>
+        internal void GetEntityMatchInputs(ulong entityId, out ArchetypeSignature signature, out SparseSetProxy sparseProxy)
+        {
+            var graph = ResolveGraph(entityId);
+            var archetype = m_registry.Get(graph.ArchetypeId);
+            signature = archetype.Signature;
+            if (graph.Row < 0)
+            {
+                sparseProxy = null;
+                return;
+            }
+
+            archetype.Locate(graph.Row, out var chunk, out var local);
+            sparseProxy = chunk.Proxies[local];
+        }
+
         private EntityGraph ResolveGraph(ulong entityId)
         {
             var graph = m_graphResolver?.Invoke(entityId);

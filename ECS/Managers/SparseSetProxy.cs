@@ -4,7 +4,7 @@ using CoreECS.Defines;
 
 namespace CoreECS.Managers
 {
-    internal sealed class SparseSetProxy
+    public sealed class SparseSetProxy
     {
         public List<IComponentRefCore> Handles { get; } = new List<IComponentRefCore>();
 

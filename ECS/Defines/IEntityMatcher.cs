@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CoreECS.Managers;
 
 namespace CoreECS.Defines
 {
@@ -13,7 +14,16 @@ namespace CoreECS.Defines
         /// </summary>
         /// <param name="components">All components of this entity</param>
         /// <returns>True if the entity matches the criteria, false otherwise</returns>
+        [Obsolete("Use Matches(ArchetypeSignature, SparseSetProxy) for archetype-backed matching.")]
         public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components);
+
+        /// <summary>
+        /// Determines if an entity's dense archetype signature and sparse proxy satisfy the matcher.
+        /// </summary>
+        /// <param name="denseSignature">Dense component composition for the entity's archetype row</param>
+        /// <param name="sparseProxy">Sparse component handles attached to the entity row</param>
+        /// <returns>True if the entity matches the criteria, false otherwise</returns>
+        public bool Matches(ArchetypeSignature denseSignature, SparseSetProxy sparseProxy);
 
         /// <summary>
         /// Gets the allowed entities mask for this matcher.

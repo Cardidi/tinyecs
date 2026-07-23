@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using CoreECS;
 using CoreECS.Defines;
 using CoreECS.Managers;
 using NUnit.Framework;
@@ -50,6 +52,37 @@ namespace CoreECS.Test
                 var after = cm.GetEntityArchetype(e.EntityId).Id;
 
                 Assert.AreEqual(before, after);
+            }
+            finally
+            {
+                world.Shutdown();
+            }
+        }
+
+        [Test]
+        public void EntityMatcher_OfAll_MixedSparseAndDense_MatchesProxyAndSignature()
+        {
+            var world = new World();
+            world.Startup();
+            try
+            {
+                var matcher = EntityMatcher.With.OfAll<DenseProbe>().OfAll<SparseProbe>();
+                var e = world.CreateEntity();
+                e.CreateComponent<DenseProbe>();
+                e.CreateComponent<SparseProbe>();
+
+                var cm = world.GetManager<ComponentManager>();
+                cm.GetEntityMatchInputs(e.EntityId, out var sig, out var proxy);
+
+                Assert.IsTrue(matcher.Matches(sig, proxy));
+
+                var emptyProxy = new SparseSetProxy();
+                Assert.IsFalse(matcher.Matches(sig, emptyProxy));
+
+                var matched = new List<ulong>();
+                world.Query(matcher, matched);
+                Assert.AreEqual(1, matched.Count);
+                CollectionAssert.Contains(matched, e.EntityId);
             }
             finally
             {

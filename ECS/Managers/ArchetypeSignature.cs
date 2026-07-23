@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace CoreECS.Managers
 {
-    internal readonly struct ArchetypeEntry
+    public readonly struct ArchetypeEntry
     {
         public readonly Type Type;
         public readonly int Count;
@@ -15,7 +15,7 @@ namespace CoreECS.Managers
         }
     }
 
-    internal readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
+    public readonly struct ArchetypeSignature : IEquatable<ArchetypeSignature>
     {
         public static ArchetypeSignature Empty { get; } = new ArchetypeSignature(Array.Empty<ArchetypeEntry>());
 
@@ -84,5 +84,20 @@ namespace CoreECS.Managers
         public static bool operator ==(ArchetypeSignature left, ArchetypeSignature right) => left.Equals(right);
 
         public static bool operator !=(ArchetypeSignature left, ArchetypeSignature right) => !left.Equals(right);
+
+        /// <summary>
+        /// Returns true when the signature contains at least one instance of <paramref name="componentType"/>.
+        /// </summary>
+        public bool Has(Type componentType)
+        {
+            for (var i = 0; i < Entries.Count; i++)
+            {
+                var entry = Entries[i];
+                if (entry.Type == componentType && entry.Count >= 1)
+                    return true;
+            }
+
+            return false;
+        }
     }
 }

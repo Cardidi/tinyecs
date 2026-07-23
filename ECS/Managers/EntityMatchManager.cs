@@ -452,7 +452,7 @@ namespace CoreECS.Managers
                 !collector.ContainsInBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId);
             
             var isMatched = !entityGraph.WishDestroy &&
-                matcher.ComponentFilter(m_entityManager.GetComponentCores(entityId));
+                _isMatched(entityGraph, matcher, entityId);
 
             if (!isAdd.HasValue)
             {
@@ -500,6 +500,16 @@ namespace CoreECS.Managers
             if (componentType == null) return true;
             if (!collector.HasChangeComponent) return true;
             return matcher.IsRelevantComponent(componentType);
+        }
+
+        /// <summary>
+        /// Evaluates whether <paramref name="entityGraph"/> satisfies <paramref name="matcher"/>.
+        /// </summary>
+        private bool _isMatched(EntityGraph entityGraph, IEntityMatcher matcher, ulong entityId)
+        {
+            var compManager = World.GetManager<ComponentManager>();
+            compManager.GetEntityMatchInputs(entityId, out var signature, out var sparseProxy);
+            return matcher.Matches(signature, sparseProxy);
         }
 
         /// <summary>

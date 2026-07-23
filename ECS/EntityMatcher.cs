@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CoreECS.Defines;
+using CoreECS.Managers;
 
 namespace CoreECS
 {
@@ -63,7 +64,12 @@ namespace CoreECS
         /// <returns>This matcher instance for method chaining</returns>
         public INoneOfEntityMatcher OfNone<T>() where T : struct, IComponent<T>
         {
-            m_none.Add(typeof(T));
+            var type = typeof(T);
+            m_none.Add(type);
+            if (ComponentStorageKind.IsSparse(type))
+                m_noneSparse.Add(type);
+            else
+                m_noneDense.Add(type);
             return this;
         }
 
@@ -74,7 +80,12 @@ namespace CoreECS
         /// <returns>This matcher instance for method chaining</returns>
         public IAnyOfEntityMatcher OfAny<T>() where T : struct, IComponent<T>
         {
-            m_any.Add(typeof(T));
+            var type = typeof(T);
+            m_any.Add(type);
+            if (ComponentStorageKind.IsSparse(type))
+                m_anySparse.Add(type);
+            else
+                m_anyDense.Add(type);
             return this;
         }
 
@@ -85,7 +96,12 @@ namespace CoreECS
         /// <returns>This matcher instance for method chaining</returns>
         public IAllOfEntityMatcher OfAll<T>() where T : struct, IComponent<T>
         {
-            m_all.Add(typeof(T));
+            var type = typeof(T);
+            m_all.Add(type);
+            if (ComponentStorageKind.IsSparse(type))
+                m_allSparse.Add(type);
+            else
+                m_allDense.Add(type);
             return this;
         }
 
@@ -133,6 +149,36 @@ namespace CoreECS
         private readonly HashSet<Type> m_none = new();
 
         /// <summary>
+        /// Dense component types required by <see cref="m_all"/>.
+        /// </summary>
+        private readonly HashSet<Type> m_allDense = new();
+
+        /// <summary>
+        /// Sparse component types required by <see cref="m_all"/>.
+        /// </summary>
+        private readonly HashSet<Type> m_allSparse = new();
+
+        /// <summary>
+        /// Dense component types considered by <see cref="m_any"/>.
+        /// </summary>
+        private readonly HashSet<Type> m_anyDense = new();
+
+        /// <summary>
+        /// Sparse component types considered by <see cref="m_any"/>.
+        /// </summary>
+        private readonly HashSet<Type> m_anySparse = new();
+
+        /// <summary>
+        /// Dense component types excluded by <see cref="m_none"/>.
+        /// </summary>
+        private readonly HashSet<Type> m_noneDense = new();
+
+        /// <summary>
+        /// Sparse component types excluded by <see cref="m_none"/>.
+        /// </summary>
+        private readonly HashSet<Type> m_noneSparse = new();
+
+        /// <summary>
         /// Temporary set used during component filtering.
         /// </summary>
         private readonly HashSet<Type> m_changing = new();
@@ -142,6 +188,7 @@ namespace CoreECS
         /// </summary>
         /// <param name="components">Collection of component references for the entity</param>
         /// <returns>True if the entity matches the criteria, false otherwise</returns>
+        [Obsolete("Use Matches(ArchetypeSignature, SparseSetProxy) for archetype-backed matching.")]
         public bool ComponentFilter(IReadOnlyCollection<IComponentRefCore> components)
         {
             m_changing.Clear();
@@ -164,6 +211,56 @@ namespace CoreECS
     
             // Entity matches if "any" condition is met and it has all required components
             return anyConditionMet && m_changing.IsSupersetOf(m_all);
+        }
+
+        /// <summary>
+        /// Determines if an entity's dense archetype signature and sparse proxy satisfy the matcher.
+        /// </summary>
+        /// <param name="denseSignature">Dense component composition for the entity's archetype row</param>
+        /// <param name="sparseProxy">Sparse component handles attached to the entity row</param>
+        /// <returns>True if the entity matches the criteria, false otherwise</returns>
+        public bool Matches(ArchetypeSignature denseSignature, SparseSetProxy sparseProxy)
+        {
+            foreach (var type in m_noneDense)
+            {
+                if (denseSignature.Has(type))
+                    return false;
+            }
+
+            foreach (var type in m_noneSparse)
+            {
+                if (sparseProxy != null && sparseProxy.Has(type))
+                    return false;
+            }
+
+            foreach (var type in m_allDense)
+            {
+                if (!denseSignature.Has(type))
+                    return false;
+            }
+
+            foreach (var type in m_allSparse)
+            {
+                if (sparseProxy == null || !sparseProxy.Has(type))
+                    return false;
+            }
+
+            if (m_anyDense.Count == 0 && m_anySparse.Count == 0)
+                return true;
+
+            foreach (var type in m_anyDense)
+            {
+                if (denseSignature.Has(type))
+                    return true;
+            }
+
+            foreach (var type in m_anySparse)
+            {
+                if (sparseProxy != null && sparseProxy.Has(type))
+                    return true;
+            }
+
+            return false;
         }
 
         /// <summary>
