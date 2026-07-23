@@ -1,7 +1,7 @@
 # Design: Archetype Chunk + SparseSetProxy Storage
 
 **Date:** 2026-07-23  
-**Status:** Draft for review  
+**Status:** Approved  
 **Scope:** Internal storage migration toward Archetype Chunks for dense `IComponent`, SparseSet (`ComponentStore`) for `ISparseComponent`, with unified matcher semantics. Public Entity create/get/destroy/`ComponentRef` surface stays stable where possible; additive APIs only (`ISparseComponent`, command buffer, `EntityQuery`).
 
 ---
