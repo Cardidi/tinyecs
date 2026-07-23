@@ -45,7 +45,7 @@
 | `EntityGraph` | Drop `RwComponents`; store archetype location (`ArchetypeId` + `Row` or equivalent) |
 | Archetype read lock | Held by `EntityQuery` iteration; blocks dense migration |
 | Collector locks | **Does not** hold archetype read locks |
-| Deferred API | Caller **rents** `IDisposable` command buffer with options; buffer owns `*Defer` APIs; **default**: auto-`Playback()` on `Dispose` |
+| Deferred API | Caller **rents** `IDisposable` command buffer with a **flags enum**; buffer owns `*Defer` APIs; **default**: auto-`Playback()` on `Dispose` |
 | Immediate mutate while locked | Throw (must use buffer) |
 | Query API | **`EntityQuery`**: primary = `IEnumerable<Entity>` (yield each match); retain fill-into-`ICollection` overloads as wrappers; split from Collector |
 | Query locks | Read-lock matched archetypes for the enumeration lifetime (`GetEnumerator`…`Dispose`) |
@@ -129,17 +129,39 @@ CommandBuffer (rented, IDisposable; default Playback-on-Dispose)
 
 ### CommandBuffer (rented)
 
-Rent options (parameters on `RentCommandBuffer`, or an options struct with the same fields):
+Rent options are a **`[Flags]` enum** passed to `RentCommandBuffer` (exact type name e.g. `CommandBufferFlag` / `CommandBufferRentFlag` is an implementation knob).
 
-| Option | Default | Effect |
-|--------|---------|--------|
-| **`playbackOnDispose`** | `true` | On `Dispose`, if the buffer has pending commands, run `Playback()` automatically before returning to the pool. |
-| **`discardPendingOnDispose`** | `false` | Only when **`playbackOnDispose` is `false`**. If the buffer is non-empty on `Dispose` and `Playback()` was not called, **do not throw** — discard pending commands and return the buffer. Ignored when `playbackOnDispose` is `true`. |
+Suggested shape (names may be adjusted; semantics are fixed):
+
+```csharp
+[Flags]
+public enum CommandBufferFlag
+{
+    /// <summary>No special dispose behavior: non-empty Dispose without Playback throws.</summary>
+    None = 0,
+
+    /// <summary>
+    /// On Dispose, if the buffer has pending commands, run Playback automatically
+    /// before returning to the pool. Default rent uses this flag.
+    /// When set, DiscardPendingOnDispose has no effect.
+    /// </summary>
+    PlaybackOnDispose = 1 << 0,
+
+    /// <summary>
+    /// Only effective when PlaybackOnDispose is not set.
+    /// Non-empty Dispose without Playback discards pending commands and does not throw.
+    /// </summary>
+    DiscardPendingOnDispose = 1 << 1,
+
+    /// <summary>Recommended default for RentCommandBuffer when no flags argument is passed.</summary>
+    Default = PlaybackOnDispose,
+}
+```
 
 **Default rent (recommended):**
 
 ```csharp
-using (var buf = world.RentCommandBuffer()) // playbackOnDispose: true (default)
+using (var buf = world.RentCommandBuffer()) // CommandBufferFlag.Default == PlaybackOnDispose
 {
     buf.CreateComponentDefer<T>(entity);
     // no explicit Playback required; Dispose runs pending commands
@@ -152,24 +174,24 @@ using (var buf = world.RentCommandBuffer()) // playbackOnDispose: true (default)
 using (var buf = world.RentCommandBuffer())
 {
     buf.CreateComponentDefer<T>(entity);
-    buf.Playback(); // optional when playbackOnDispose is true; must run before dense migrate while unlocked
+    buf.Playback(); // optional when PlaybackOnDispose is set
 }
 ```
 
 **Strict manual mode:**
 
 ```csharp
-using (var buf = world.RentCommandBuffer(playbackOnDispose: false))
+using (var buf = world.RentCommandBuffer(CommandBufferFlag.None))
 {
     buf.CreateComponentDefer<T>(entity);
     buf.Playback(); // required before Dispose
-} // non-empty + no Playback → throw (unless discardPendingOnDispose: true)
+} // non-empty + no Playback → throw
 ```
 
 **Discard without Playback:**
 
 ```csharp
-using (var buf = world.RentCommandBuffer(playbackOnDispose: false, discardPendingOnDispose: true))
+using (var buf = world.RentCommandBuffer(CommandBufferFlag.DiscardPendingOnDispose))
 {
     buf.CreateComponentDefer<T>(entity);
 } // pending commands discarded; no throw
@@ -180,8 +202,8 @@ Rules:
 - Defer means **enqueue a command**; it does not allocate/migrate until `Playback`.
 - `OnCreate` / `OnDestroy` run at real allocate/release time (immediate path or `Playback`), not at enqueue.
 - Component created/removed/changed signals for collectors fire at real mutation time (including during `Playback`, including auto-Playback on `Dispose`).
-- When `playbackOnDispose` is `true`, **`discardPendingOnDispose` is ignored** (non-empty buffers are played back, not discarded).
-- When `playbackOnDispose` is `false` and `discardPendingOnDispose` is `false`, **`Dispose` with pending commands throws**.
+- When `PlaybackOnDispose` is set, **`DiscardPendingOnDispose` is ignored** (non-empty buffers are played back, not discarded).
+- When neither flag is set (`None`), **`Dispose` with pending commands throws**.
 
 ---
 
@@ -231,7 +253,7 @@ Requirements:
 
 ### Interaction with structural changes
 
-During an active (locked) `EntityQuery`, callers that need dense structural changes must rent a `CommandBuffer`, enqueue Defer commands, **end the enumeration** (release locks), then `Playback` (or rely on `Dispose` auto-Playback when `playbackOnDispose` is enabled).
+During an active (locked) `EntityQuery`, callers that need dense structural changes must rent a `CommandBuffer`, enqueue Defer commands, **end the enumeration** (release locks), then `Playback` (or rely on `Dispose` auto-Playback when `CommandBufferFlag.PlaybackOnDispose` is set / default).
 
 ---
 
@@ -257,7 +279,7 @@ During an active (locked) `EntityQuery`, callers that need dense structural chan
 |------|------------|
 | `ComponentManager` | Route by sparse interface; own archetypes/chunks/locks; rent command buffers; keep `ComponentStore` for sparse |
 | `EntityManager` | Stop syncing `RwComponents`; update entity location on migrate; destroy removes chunk row + sparse comps |
-| `World` | `EntityQuery` entry points; `RentCommandBuffer(options)`; `EndTick` still cleans sparse store as today; does **not** auto-Playback buffers that were never rented/disposed |
+| `World` | `EntityQuery` entry points; `RentCommandBuffer(CommandBufferFlag)`; `EndTick` still cleans sparse store as today; does **not** auto-Playback buffers that were never rented/disposed |
 | `EntityMatchManager` | Eval via new `Matches`; hybrid membership index |
 | `Entity` / extensions | Same façade; throw when dense immediate mutate under read lock |
 | New types | `ComponentChunk`, archetype registry, `SparseSetProxy`, command buffer interfaces, `EntityQuery` |
@@ -269,7 +291,7 @@ During an active (locked) `EntityQuery`, callers that need dense structural chan
 Explicit exceptions (no silent failure):
 
 - Dense immediate structural change while archetype read-locked.
-- Command buffer `Dispose` with pending commands when `playbackOnDispose` is `false` and `discardPendingOnDispose` is `false`.
+- Command buffer `Dispose` with pending commands when neither `PlaybackOnDispose` nor `DiscardPendingOnDispose` applies (`CommandBufferFlag.None`).
 - Existing illegal ops: invalid entity, foreign component destroy, double destroy, missing destroy-by-type, etc.
 
 ---
@@ -293,7 +315,7 @@ Explicit exceptions (no silent failure):
 - Dense multiplicity archetypes and migration.
 - Proxy-only archetype; sparse add/remove without migrate.
 - `OfAll` mixed sparse + dense.
-- Command buffer rent options: default auto-Playback on `Dispose`; strict mode throws on non-empty dispose; discard mode drops pending commands without throw.
+- Command buffer `[Flags]` rent enum: `Default`/`PlaybackOnDispose` auto-Playback on `Dispose`; `None` throws on non-empty dispose; `DiscardPendingOnDispose` drops pending commands without throw (ignored when PlaybackOnDispose is set).
 - Immediate dense mutate under `EntityQuery` lock throws.
 - `EntityQuery` `IEnumerable` streaming + lock lifetime (including early `break` / dispose).
 - Fill-`ICollection` overloads delegate to the same matching/lock behavior.
@@ -315,7 +337,7 @@ Explicit exceptions (no silent failure):
 These may be chosen during implementation without changing the design intent:
 
 - Exact default chunk capacity.
-- Exact public names for buffer interface (`ICommandBuffer` vs similar) and rent options type (`CommandBufferRentOptions` vs parameters) as long as `playbackOnDispose` (default true) and `discardPendingOnDispose` (effective only when playback-on-dispose is false) semantics hold.
+- Exact public names for buffer interface (`ICommandBuffer` vs similar) and rent flags enum (`CommandBufferFlag` vs similar) as long as `[Flags]` bits for PlaybackOnDispose (default) and DiscardPendingOnDispose (effective only when PlaybackOnDispose is unset) semantics hold.
 - Exact public type name for the query enumerable (`EntityQuery` vs returning `IEnumerable<Entity>` directly) as long as streaming + disposable lock lifetime hold.
 - Whether obsolete `ComponentFilter(list)` remains as a temporary adapter.
 
