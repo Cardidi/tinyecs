@@ -108,7 +108,9 @@ namespace CoreECS.Managers
             graph.Mask = mask;
             graph.EntityId = id;
             graph.WishDestroy = false;
-            
+
+            m_compManager.PlaceNewEntity(graph);
+
             return graph;
         }
         
@@ -137,20 +139,22 @@ namespace CoreECS.Managers
             Assertion.IsTrue(m_init);
             Assertion.IsFalse(m_shutdown);
             
-            if (m_entityCaches.Remove(entityId, out var graph))
+            if (m_entityCaches.TryGetValue(entityId, out var graph))
             {
                 graph.WishDestroy = true;
                 if (m_entityComponents.TryGetValue(entityId, out var components))
                 {
                     var componentsToDestroy = components.ToArray();
-                    components.Clear();
-                    m_entityComponents.Remove(entityId);
-                    
                     for (var i = 0; i < componentsToDestroy.Length; i++)
                     {
                         m_compManager.DestroyComponent(componentsToDestroy[i]);
                     }
                 }
+
+                m_compManager.RemoveEntityRow(graph);
+
+                m_entityCaches.Remove(entityId);
+                m_entityComponents.Remove(entityId);
 
                 OnEntityLoseComp.Emit(in graph, (Type)null, static (h, g, t) => h(g, t));
                 EntityGraph.Pool.Release(graph);
@@ -262,6 +266,33 @@ namespace CoreECS.Managers
         }
 
         /// <summary>
+        /// Counts the instances of type TComp attached to the specified entity.
+        /// </summary>
+        internal int GetComponentCount<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
+        {
+            if (!m_entityComponents.TryGetValue(entityId, out var components)) return 0;
+
+            var count = 0;
+            for (var i = 0; i < components.Count; i++)
+            {
+                var loc = components[i].RefLocator;
+                if (loc != null && loc.IsT(typeof(TComp))) count += 1;
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// Resolves an entity id to its graph without lifecycle assertions, used as the component manager's resolver.
+        /// </summary>
+        /// <param name="entityId">Entity id to resolve.</param>
+        /// <returns>The entity graph, or null when absent.</returns>
+        private EntityGraph ResolveEntityGraph(ulong entityId)
+        {
+            return m_entityCaches.TryGetValue(entityId, out var graph) ? graph : null;
+        }
+
+        /// <summary>
         /// Handles component addition events.
         /// </summary>
         /// <param name="component">The component that was added</param>
@@ -314,6 +345,7 @@ namespace CoreECS.Managers
             m_compManager.OnComponentCreated.Add(_onComponentAdded);
             m_compManager.OnComponentRemoved.Add(_onComponentRemoved);
             m_compManager.OnComponentChanged.Add(_onComponentChanged);
+            m_compManager.BindEntityGraphResolver(ResolveEntityGraph);
 
             m_init = true;
         }

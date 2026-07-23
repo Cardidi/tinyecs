@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CoreECS.Defines;
 
 namespace CoreECS.Managers
 {
@@ -7,12 +8,14 @@ namespace CoreECS.Managers
     {
         private readonly List<Archetype> m_archetypes = new List<Archetype>();
         private readonly Dictionary<ArchetypeSignature, Archetype> m_bySignature = new Dictionary<ArchetypeSignature, Archetype>();
+        private readonly Action<IComponentRefCore, ulong> m_revisionChanged;
 
         public Archetype Empty { get; }
 
-        public ArchetypeRegistry()
+        public ArchetypeRegistry(Action<IComponentRefCore, ulong> revisionChanged = null)
         {
-            Empty = new Archetype(0, ArchetypeSignature.Empty);
+            m_revisionChanged = revisionChanged;
+            Empty = new Archetype(0, ArchetypeSignature.Empty, revisionChanged);
             m_archetypes.Add(Empty);
             m_bySignature[ArchetypeSignature.Empty] = Empty;
         }
@@ -22,7 +25,7 @@ namespace CoreECS.Managers
             if (m_bySignature.TryGetValue(signature, out var existing))
                 return existing;
 
-            var archetype = new Archetype(m_archetypes.Count, signature);
+            var archetype = new Archetype(m_archetypes.Count, signature, m_revisionChanged);
             m_archetypes.Add(archetype);
             m_bySignature[signature] = archetype;
             return archetype;

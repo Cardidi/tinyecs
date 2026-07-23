@@ -245,6 +245,17 @@ namespace CoreECS
         }
 
         /// <summary>
+        /// Counts how many instances of type T are attached to this entity.
+        /// </summary>
+        /// <typeparam name="T">Component type to count, must be a struct implementing IComponent&lt;T&gt;</typeparam>
+        /// <returns>The number of attached instances of type T</returns>
+        public int GetComponentCount<T>() where T : struct, IComponent<T>
+        {
+            _accessGraph();
+            return m_entityManager.GetComponentCount<T>(m_entityId);
+        }
+
+        /// <summary>
         /// Internal constructor used by the ECS framework to create an entity.
         /// </summary>
         /// <param name="world">The world this entity belongs to</param>

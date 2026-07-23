@@ -53,5 +53,23 @@ namespace CoreECS.Test
             chunk.RemoveRowSwapBack(row);
             Assert.AreEqual(0, chunk.Count);
         }
+
+        [Test]
+        public void DenseCreate_MigratesArchetypeByCount()
+        {
+            var world = new World();
+            world.Startup();
+            try
+            {
+                var e = world.CreateEntity();
+                e.CreateComponent<DenseProbe>();
+                e.CreateComponent<DenseProbe>();
+                Assert.AreEqual(2, e.GetComponentCount<DenseProbe>());
+            }
+            finally
+            {
+                world.Shutdown();
+            }
+        }
     }
 }

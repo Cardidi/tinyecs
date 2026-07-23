@@ -618,6 +618,16 @@ namespace CoreECS.Managers
         private readonly Action<IComponentRefCore, ulong> m_onComponentChangedCallback;
 
         /// <summary>
+        /// Registry of dense archetypes and their chunk storage.
+        /// </summary>
+        private readonly ArchetypeRegistry m_registry;
+
+        /// <summary>
+        /// Resolves an entity id into its <see cref="EntityGraph"/>; bound by the entity manager.
+        /// </summary>
+        private Func<ulong, EntityGraph> m_graphResolver;
+
+        /// <summary>
         /// Event triggered when a component is created.
         /// </summary>
         public Signal<ComponentCreated> OnComponentCreated { get; } = new();
@@ -705,13 +715,10 @@ namespace CoreECS.Managers
         /// <returns>The core reference for the created component</returns>
         public IComponentRefCore CreateComponent<T>(ulong entityId) where T : struct, IComponent<T>
         {
-            var store = GetComponentStore<T>();
-
-            var allocComp = store.Fix(entityId);
-            var core = store.RefLocator.GetRefCore(allocComp);
-            
-            OnComponentCreated.Emit(core, entityId, typeof(T), _addEmitter);
-            return core;
+            var graph = ResolveGraph(entityId);
+            return ComponentStorageKind.IsSparse<T>()
+                ? CreateSparse<T>(graph, entityId, false, default)
+                : CreateDense<T>(graph, entityId, false, default);
         }
         
         /// <summary>
@@ -723,17 +730,64 @@ namespace CoreECS.Managers
         /// <returns>The core reference for the created component</returns>
         public IComponentRefCore CreateComponent<T>(ulong entityId, T initialValue) where T : struct, IComponent<T>
         {
-            var store = GetComponentStore<T>();
+            var graph = ResolveGraph(entityId);
+            return ComponentStorageKind.IsSparse<T>()
+                ? CreateSparse<T>(graph, entityId, true, initialValue)
+                : CreateDense<T>(graph, entityId, true, initialValue);
+        }
 
-            var allocComp = store.Fix(entityId, initialValue);
-            var core = store.RefLocator.GetRefCore(allocComp);
-            
+        /// <summary>
+        /// Creates a dense component instance by migrating the entity to an archetype with one more instance of <typeparamref name="T"/>.
+        /// </summary>
+        private IComponentRefCore CreateDense<T>(EntityGraph graph, ulong entityId, bool hasInitial, T initialValue)
+            where T : struct, IComponent<T>
+        {
+            var sourceArchetype = m_registry.Get(graph.ArchetypeId);
+            TryBeginDenseStructuralChange(sourceArchetype);
+            sourceArchetype.Locate(graph.Row, out var sourceChunk, out var sourceLocal);
+
+            var destSignature = AddOneComponent(sourceArchetype.Signature, typeof(T), out var newInstanceIndex);
+            var destArchetype = m_registry.GetOrCreate(destSignature);
+            var destGlobal = destArchetype.AddEntityRow(entityId, out var destChunk, out var destLocal);
+
+            sourceChunk.MigrateRowInto(destChunk, sourceLocal, destLocal, null, 0);
+            var core = destChunk.CreateDense<T>(destLocal, newInstanceIndex, entityId, hasInitial, initialValue);
+
+            var moved = sourceArchetype.RemoveEntityRow(graph.Row, out var movedNewGlobalRow);
+            if (moved != 0)
+            {
+                var movedGraph = m_graphResolver?.Invoke(moved);
+                if (movedGraph != null) movedGraph.Row = movedNewGlobalRow;
+            }
+
+            graph.ArchetypeId = destArchetype.Id;
+            graph.Row = destGlobal;
+
             OnComponentCreated.Emit(core, entityId, typeof(T), _addEmitter);
             return core;
         }
 
         /// <summary>
-        /// Destroys a component.
+        /// Creates a sparse component instance in the backing <see cref="ComponentStore{T}"/> and records the handle in the entity's row proxy.
+        /// Sparse components never change the entity's archetype.
+        /// </summary>
+        private IComponentRefCore CreateSparse<T>(EntityGraph graph, ulong entityId, bool hasInitial, T initialValue)
+            where T : struct, IComponent<T>
+        {
+            var store = GetComponentStore<T>();
+            var allocComp = hasInitial ? store.Fix(entityId, initialValue) : store.Fix(entityId);
+            var core = store.RefLocator.GetRefCore(allocComp);
+
+            var archetype = m_registry.Get(graph.ArchetypeId);
+            archetype.Locate(graph.Row, out var chunk, out var local);
+            chunk.Proxies[local].Add(core);
+
+            OnComponentCreated.Emit(core, entityId, typeof(T), _addEmitter);
+            return core;
+        }
+
+        /// <summary>
+        /// Destroys a component, routing sparse components to the store and dense components to chunk migration.
         /// </summary>
         /// <param name="core">The core reference of the component to destroy</param>
         public void DestroyComponent(IComponentRefCore core)
@@ -741,12 +795,60 @@ namespace CoreECS.Managers
             if (core.RefLocator == null)
                 throw new InvalidOperationException("Component has already been destroyed!");
 
-            var idx = core.Offset;
-            var store = GetComponentStore(core.RefLocator.GetT());
-            var entityId = store.RefLocator.GetEntityId(idx);
             var compType = core.RefLocator.GetT();
-            
+            if (ComponentStorageKind.IsSparse(compType))
+                DestroySparse(core, compType);
+            else
+                DestroyDense(core, compType);
+        }
+
+        private void DestroySparse(IComponentRefCore core, Type compType)
+        {
+            var idx = core.Offset;
+            var store = GetComponentStore(compType);
+            var entityId = store.RefLocator.GetEntityId(idx);
+
+            var graph = m_graphResolver?.Invoke(entityId);
+            if (graph != null && graph.Row >= 0)
+            {
+                var archetype = m_registry.Get(graph.ArchetypeId);
+                archetype.Locate(graph.Row, out var chunk, out var local);
+                chunk.Proxies[local]?.Remove(core);
+            }
+
             if (store.Release(idx)) OnComponentRemoved.Emit(core, entityId, compType, _rmEmitter);
+        }
+
+        private void DestroyDense(IComponentRefCore core, Type compType)
+        {
+            var entityId = core.RefLocator.GetEntityId(core.Offset);
+            var graph = ResolveGraph(entityId);
+
+            var sourceArchetype = m_registry.Get(graph.ArchetypeId);
+            TryBeginDenseStructuralChange(sourceArchetype);
+            sourceArchetype.Locate(graph.Row, out var sourceChunk, out var sourceLocal);
+
+            if (!sourceChunk.TryGetDenseSlot(sourceLocal, core, out _, out var instanceIndex))
+                throw new InvalidOperationException("Component reference is not attached to its entity's chunk row.");
+
+            var destSignature = RemoveOneComponent(sourceArchetype.Signature, compType);
+            var destArchetype = m_registry.GetOrCreate(destSignature);
+            var destGlobal = destArchetype.AddEntityRow(entityId, out var destChunk, out var destLocal);
+
+            sourceChunk.MigrateRowInto(destChunk, sourceLocal, destLocal, compType, instanceIndex);
+            sourceChunk.DestroyDenseSlot(sourceLocal, compType, instanceIndex);
+
+            var moved = sourceArchetype.RemoveEntityRow(graph.Row, out var movedNewGlobalRow);
+            if (moved != 0)
+            {
+                var movedGraph = m_graphResolver?.Invoke(moved);
+                if (movedGraph != null) movedGraph.Row = movedNewGlobalRow;
+            }
+
+            graph.ArchetypeId = destArchetype.Id;
+            graph.Row = destGlobal;
+
+            OnComponentRemoved.Emit(core, entityId, compType, _rmEmitter);
         }
         
         public void CleanupComponents()
@@ -762,6 +864,125 @@ namespace CoreECS.Managers
         public ComponentManager()
         {
             m_onComponentChangedCallback = _onComponentChanged;
+            m_registry = new ArchetypeRegistry(m_onComponentChangedCallback);
+        }
+
+        /// <summary>
+        /// Binds the entity graph resolver used to locate an entity's archetype/row during component mutation.
+        /// </summary>
+        /// <param name="resolver">Delegate mapping entity id to its <see cref="EntityGraph"/> (null when absent).</param>
+        internal void BindEntityGraphResolver(Func<ulong, EntityGraph> resolver)
+        {
+            m_graphResolver = resolver;
+        }
+
+        /// <summary>
+        /// Places a freshly created entity in the empty (proxy-only) archetype and records its location.
+        /// </summary>
+        /// <param name="graph">Entity graph to place.</param>
+        internal void PlaceNewEntity(EntityGraph graph)
+        {
+            var empty = m_registry.Empty;
+            var global = empty.AddEntityRow(graph.EntityId, out _, out _);
+            graph.ArchetypeId = empty.Id;
+            graph.Row = global;
+        }
+
+        /// <summary>
+        /// Removes the entity's chunk row (after all of its components were released) and clears its location.
+        /// </summary>
+        /// <param name="graph">Entity graph to remove.</param>
+        internal void RemoveEntityRow(EntityGraph graph)
+        {
+            if (graph.Row < 0) return;
+
+            var archetype = m_registry.Get(graph.ArchetypeId);
+            var moved = archetype.RemoveEntityRow(graph.Row, out var movedNewGlobalRow);
+            if (moved != 0)
+            {
+                var movedGraph = m_graphResolver?.Invoke(moved);
+                if (movedGraph != null) movedGraph.Row = movedNewGlobalRow;
+            }
+
+            graph.ArchetypeId = 0;
+            graph.Row = -1;
+        }
+
+        /// <summary>
+        /// Verifies that a dense structural change is permitted on <paramref name="archetype"/>.
+        /// </summary>
+        /// <param name="archetype">Archetype about to be mutated.</param>
+        /// <returns>True when the change may proceed immediately.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the archetype is read-locked.</exception>
+        internal bool TryBeginDenseStructuralChange(Archetype archetype)
+        {
+            if (archetype.IsReadLocked)
+                throw new InvalidOperationException(
+                    "Cannot perform a dense structural change while the archetype is read-locked; use a CommandBuffer to defer the change.");
+
+            return true;
+        }
+
+        private EntityGraph ResolveGraph(ulong entityId)
+        {
+            var graph = m_graphResolver?.Invoke(entityId);
+            if (graph == null)
+                throw new InvalidOperationException($"Entity {entityId} does not exist or has no archetype location.");
+
+            return graph;
+        }
+
+        private static ArchetypeSignature AddOneComponent(ArchetypeSignature signature, Type type, out int newInstanceIndex)
+        {
+            var entries = signature.Entries;
+            var result = new List<ArchetypeEntry>(entries.Count + 1);
+            var found = false;
+            newInstanceIndex = 0;
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.Type == type)
+                {
+                    newInstanceIndex = entry.Count;
+                    result.Add(new ArchetypeEntry(type, entry.Count + 1));
+                    found = true;
+                }
+                else
+                {
+                    result.Add(entry);
+                }
+            }
+
+            if (!found)
+            {
+                newInstanceIndex = 0;
+                result.Add(new ArchetypeEntry(type, 1));
+            }
+
+            return ArchetypeSignature.From(result.ToArray());
+        }
+
+        private static ArchetypeSignature RemoveOneComponent(ArchetypeSignature signature, Type type)
+        {
+            var entries = signature.Entries;
+            var result = new List<ArchetypeEntry>(entries.Count);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.Type == type)
+                {
+                    if (entry.Count > 1)
+                        result.Add(new ArchetypeEntry(type, entry.Count - 1));
+                }
+                else
+                {
+                    result.Add(entry);
+                }
+            }
+
+            return result.Count == 0 ? ArchetypeSignature.Empty : ArchetypeSignature.From(result.ToArray());
         }
 
         /// <summary>

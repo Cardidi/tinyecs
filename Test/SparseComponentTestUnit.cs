@@ -16,5 +16,23 @@ namespace CoreECS.Test
             Assert.IsTrue(ComponentStorageKind.IsSparse<SparseProbe>());
             Assert.IsTrue(ComponentStorageKind.IsSparse(typeof(SparseProbe)));
         }
+
+        [Test]
+        public void SparseCreate_DoesNotRequireDenseColumns()
+        {
+            var world = new World();
+            world.Startup();
+            try
+            {
+                var e = world.CreateEntity();
+                e.CreateComponent<SparseProbe>();
+                Assert.IsTrue(e.HasComponent<SparseProbe>());
+                Assert.IsFalse(e.HasComponent<DenseProbe>());
+            }
+            finally
+            {
+                world.Shutdown();
+            }
+        }
     }
 }
