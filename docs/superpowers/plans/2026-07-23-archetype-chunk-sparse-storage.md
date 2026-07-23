@@ -592,7 +592,7 @@ public void EntityQuery_YieldsMatchingEntities()
     var matcher = EntityMatcher.With().OfAll<DenseProbe>();
     var ids = new List<ulong>();
     foreach (var e in world.Query(matcher))
-        ids.Add(e.ID); // use actual Entity id property name from Entity.cs
+        ids.Add(e.EntityId);
     Assert.AreEqual(1, ids.Count);
 }
 
@@ -610,8 +610,6 @@ public void EntityQuery_DenseCreateWhileEnumerating_Throws()
     });
 }
 ```
-
-Confirm `Entity` id property name (`Id` vs `ID`) from `ECS/Entity.cs` before writing the test.
 
 - [ ] **Step 2: Run tests to verify fail**
 
@@ -635,7 +633,7 @@ public int Query(IEntityMatcher matcher, ICollection<ulong> result)
     var n = 0;
     foreach (var e in Query(matcher))
     {
-        result.Add(e.Id);
+        result.Add(e.EntityId);
         n++;
     }
     return n;
@@ -791,10 +789,10 @@ public void Collector_DenseSecondInstance_StillMatchedAfterMigrate()
     e.CreateComponent<DenseProbe>();
     var collector = EntityMatcher.With().OfAll<DenseProbe>().Build(world);
     collector.Flush();
-    Assert.Contains(e.Id, collector.Collected.ToList()); // adapt to actual buffer API
+    Assert.That(collector.Collected, Does.Contain(e.EntityId)); // adapt if Collected is not populated until enter; use Matching after Flush per IEntityCollector
     e.CreateComponent<DenseProbe>(); // migrate Count 1→2; still has DenseProbe
     collector.Flush();
-    Assert.Contains(e.Id, collector.Collected.ToList());
+    Assert.That(collector.Collected, Does.Contain(e.EntityId));
 }
 
 [Test]
@@ -804,13 +802,13 @@ public void Collector_SparseAdd_PublishesAfterFlush()
     var e = world.CreateEntity();
     var collector = EntityMatcher.With().OfAll<SparseProbe>().Build(world);
     e.CreateComponent<SparseProbe>();
-    Assert.IsEmpty(collector.Matching); // before flush — adapt to API
+    Assert.That(collector.Matching, Is.Empty); // before flush
     collector.Flush();
-    Assert.Contains(e.Id, collector.Matching.ToList());
+    Assert.That(collector.Matching, Does.Contain(e.EntityId));
 }
 ```
 
-Read `IEntityCollector` buffer property names before finalizing asserts (`Collected`/`Matching` are `IReadOnlyCollection<ulong>` etc.).
+Use exact `IEntityCollector` buffer semantics from `ECS/Defines/IEntityCollector.cs` (`Collected` / `Matching` / `Flush`).
 
 - [ ] **Step 2: Run to verify fail**
 
@@ -889,7 +887,7 @@ git commit -m "fix(test): stabilize suites after archetype chunk migration"
 
 - Enum name `CommandBufferFlag` matches approved spec (exclusive modes, not `[Flags]`).
 - `MustManualPlaybackOnDispose` spelling (Manual) matches spec.
-- Entity id property must be verified against `ECS/Entity.cs` when implementing tests (`Id`).
+- Entity id property is `Entity.EntityId` (`ECS/Entity.cs`).
 - Default chunk capacity **64** fixed in Task 3.
 - No TBD left for required behaviors; open knobs limited to exact type names already aliased in Interfaces blocks.
 
