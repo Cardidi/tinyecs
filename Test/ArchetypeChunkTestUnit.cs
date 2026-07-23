@@ -9,6 +9,15 @@ namespace CoreECS.Test
     public class ArchetypeChunkTestUnit
     {
         [Test]
+        public void ArchetypeSignature_From_RejectsCountLessThanOne()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                ArchetypeSignature.From(new ArchetypeEntry(typeof(DenseProbe), 0)));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                ArchetypeSignature.From(new ArchetypeEntry(typeof(DenseProbe), -1)));
+        }
+
+        [Test]
         public void ArchetypeSignature_Equals_ByTypeAndCount()
         {
             var a = ArchetypeSignature.From(
