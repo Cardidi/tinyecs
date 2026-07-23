@@ -34,5 +34,27 @@ namespace CoreECS.Test
                 world.Shutdown();
             }
         }
+
+        [Test]
+        public void SparseCreate_DoesNotChangeArchetypeId()
+        {
+            var world = new World();
+            world.Startup();
+            try
+            {
+                var cm = world.GetManager<ComponentManager>();
+                var e = world.CreateEntity();
+
+                var before = cm.GetEntityArchetype(e.EntityId).Id;
+                e.CreateComponent<SparseProbe>();
+                var after = cm.GetEntityArchetype(e.EntityId).Id;
+
+                Assert.AreEqual(before, after);
+            }
+            finally
+            {
+                world.Shutdown();
+            }
+        }
     }
 }

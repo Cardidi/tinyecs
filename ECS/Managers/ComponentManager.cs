@@ -743,25 +743,33 @@ namespace CoreECS.Managers
             where T : struct, IComponent<T>
         {
             var sourceArchetype = m_registry.Get(graph.ArchetypeId);
-            TryBeginDenseStructuralChange(sourceArchetype);
             sourceArchetype.Locate(graph.Row, out var sourceChunk, out var sourceLocal);
 
             var destSignature = AddOneComponent(sourceArchetype.Signature, typeof(T), out var newInstanceIndex);
             var destArchetype = m_registry.GetOrCreate(destSignature);
+
+            // Both source and destination must be free of read locks before any mutation begins.
+            TryBeginDenseStructuralChange(sourceArchetype);
+            TryBeginDenseStructuralChange(destArchetype);
+
+            var sourceGlobalRow = graph.Row;
             var destGlobal = destArchetype.AddEntityRow(entityId, out var destChunk, out var destLocal);
 
             sourceChunk.MigrateRowInto(destChunk, sourceLocal, destLocal, null, 0);
+
+            // Update the graph location to the destination row before OnCreate runs so the hook
+            // observes the entity at its new archetype/row (with surviving components already in place).
+            graph.ArchetypeId = destArchetype.Id;
+            graph.Row = destGlobal;
+
             var core = destChunk.CreateDense<T>(destLocal, newInstanceIndex, entityId, hasInitial, initialValue);
 
-            var moved = sourceArchetype.RemoveEntityRow(graph.Row, out var movedNewGlobalRow);
+            var moved = sourceArchetype.RemoveEntityRow(sourceGlobalRow, out var movedNewGlobalRow);
             if (moved != 0)
             {
                 var movedGraph = m_graphResolver?.Invoke(moved);
                 if (movedGraph != null) movedGraph.Row = movedNewGlobalRow;
             }
-
-            graph.ArchetypeId = destArchetype.Id;
-            graph.Row = destGlobal;
 
             OnComponentCreated.Emit(core, entityId, typeof(T), _addEmitter);
             return core;
@@ -825,7 +833,6 @@ namespace CoreECS.Managers
             var graph = ResolveGraph(entityId);
 
             var sourceArchetype = m_registry.Get(graph.ArchetypeId);
-            TryBeginDenseStructuralChange(sourceArchetype);
             sourceArchetype.Locate(graph.Row, out var sourceChunk, out var sourceLocal);
 
             if (!sourceChunk.TryGetDenseSlot(sourceLocal, core, out _, out var instanceIndex))
@@ -833,12 +840,20 @@ namespace CoreECS.Managers
 
             var destSignature = RemoveOneComponent(sourceArchetype.Signature, compType);
             var destArchetype = m_registry.GetOrCreate(destSignature);
-            var destGlobal = destArchetype.AddEntityRow(entityId, out var destChunk, out var destLocal);
 
-            sourceChunk.MigrateRowInto(destChunk, sourceLocal, destLocal, compType, instanceIndex);
+            // Both source and destination must be free of read locks before any mutation begins.
+            TryBeginDenseStructuralChange(sourceArchetype);
+            TryBeginDenseStructuralChange(destArchetype);
+
+            var sourceGlobalRow = graph.Row;
+
+            // Run OnDestroy while the entity is still at its (valid) source location, before survivors relocate.
             sourceChunk.DestroyDenseSlot(sourceLocal, compType, instanceIndex);
 
-            var moved = sourceArchetype.RemoveEntityRow(graph.Row, out var movedNewGlobalRow);
+            var destGlobal = destArchetype.AddEntityRow(entityId, out var destChunk, out var destLocal);
+            sourceChunk.MigrateRowInto(destChunk, sourceLocal, destLocal, compType, instanceIndex);
+
+            var moved = sourceArchetype.RemoveEntityRow(sourceGlobalRow, out var movedNewGlobalRow);
             if (moved != 0)
             {
                 var movedGraph = m_graphResolver?.Invoke(moved);
@@ -921,6 +936,17 @@ namespace CoreECS.Managers
                     "Cannot perform a dense structural change while the archetype is read-locked; use a CommandBuffer to defer the change.");
 
             return true;
+        }
+
+        /// <summary>
+        /// Resolves the archetype currently hosting <paramref name="entityId"/>'s dense storage row.
+        /// </summary>
+        /// <param name="entityId">Entity whose archetype to resolve.</param>
+        /// <returns>The archetype the entity is currently placed in.</returns>
+        internal Archetype GetEntityArchetype(ulong entityId)
+        {
+            var graph = ResolveGraph(entityId);
+            return m_registry.Get(graph.ArchetypeId);
         }
 
         private EntityGraph ResolveGraph(ulong entityId)
