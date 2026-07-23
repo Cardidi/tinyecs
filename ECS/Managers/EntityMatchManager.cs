@@ -124,6 +124,12 @@ namespace CoreECS.Managers
             public readonly bool HasChangeComponent;
 
             /// <summary>
+            /// Dense archetype ids whose signatures can satisfy this collector's matcher before
+            /// sparse proxy checks are applied.
+            /// </summary>
+            public readonly HashSet<int> MatchingArchetypeIds;
+
+            /// <summary>
             /// Summarizes previous changes and starts a new collecting phase.
             /// </summary>
             public void Flush()
@@ -257,7 +263,9 @@ namespace CoreECS.Managers
             /// <param name="matcher">The matcher to use for filtering entities</param>
             /// <param name="flag">The flags that control collector behavior</param>
             /// <param name="manager">The manager that created this collector</param>
-            public Collector(IEntityMatcher matcher, EntityCollectorFlag flag, EntityMatchManager manager)
+            /// <param name="matchingArchetypeIds">Shared dense archetype membership cache for the matcher.</param>
+            public Collector(IEntityMatcher matcher, EntityCollectorFlag flag, EntityMatchManager manager,
+                HashSet<int> matchingArchetypeIds)
             {
                 Matcher = matcher;
                 Flag = flag;
@@ -265,6 +273,7 @@ namespace CoreECS.Managers
                 TrackMatchChanged = (flag & EntityCollectorFlag.MatchAsChange) > 0;
                 TrackClashChanged = (flag & EntityCollectorFlag.ClashAsChange) > 0;
                 HasChangeComponent = (flag & EntityCollectorFlag.RelatedComponentOnly) > 0;
+                MatchingArchetypeIds = matchingArchetypeIds;
                 m_manager = manager;
             }
 
@@ -341,6 +350,11 @@ namespace CoreECS.Managers
         private EntityManager m_entityManager;
 
         /// <summary>
+        /// Cached component manager used to resolve archetype signatures without taking read locks.
+        /// </summary>
+        private ComponentManager m_componentManager;
+
+        /// <summary>
         /// List of all collectors managed by this manager.
         /// </summary>
         private readonly List<Collector> m_collectors = new();
@@ -354,6 +368,11 @@ namespace CoreECS.Managers
         /// Indicates whether entity change signals are currently subscribed.
         /// </summary>
         private bool m_isSubscribedToEntitySignals;
+
+        /// <summary>
+        /// Matcher-level dense archetype membership caches shared by collectors using the same matcher.
+        /// </summary>
+        private readonly Dictionary<IEntityMatcher, HashSet<int>> m_matchingArchetypesByMatcher = new();
 
         /// <summary>
         /// Ensures this manager is subscribed to entity change signals when collectors exist.
@@ -443,23 +462,127 @@ namespace CoreECS.Managers
             if ((matcher.EntityMask & entityGraph.Mask) == 0) return;
             
             var entityId = entityGraph.EntityId;
-            
-            // Pending match/clash buffers can make an entity "already collected" before it
-            // reaches Collected, or keep it in Collected after it is scheduled to leave.
-            var alreadyCollected = !init &&
-                (collector.ContainsInBuffer(COLLECTED_BUFFER_INDEX, entityId) ||
-                 collector.ContainsInBuffer(CHANGE_MATCHING_BUFFER_INDEX, entityId)) &&
-                !collector.ContainsInBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId);
-            
-            var isMatched = !entityGraph.WishDestroy && matcher.ComponentFilter(entityGraph.RwComponents);
 
             if (!isAdd.HasValue)
             {
-                if (collector.TrackRevisionChanged && alreadyCollected && isMatched
+                var alreadyCollected = _isAlreadyCollected(collector, entityId, init);
+                if (collector.TrackRevisionChanged && alreadyCollected
                     && RelevanceGate(collector, matcher, componentType))
                     collector.MarkChanged(entityId);
                 return;
             }
+
+            if (init)
+            {
+                var isMatched = !entityGraph.WishDestroy && _isMatched(entityGraph, matcher, entityId);
+                _applyCollectorMatchState(collector, entityId, isMatched, true, componentType);
+                return;
+            }
+
+            if (componentType == null)
+            {
+                _applyCollectorMatchState(collector, entityId, false, init, componentType);
+                return;
+            }
+
+            if (ComponentStorageKind.IsSparse(componentType))
+            {
+                _changeSparseCollector(collector, entityGraph, init, componentType);
+                return;
+            }
+
+            _changeDenseCollector(collector, entityGraph, isAdd.Value, init, componentType);
+        }
+
+        /// <summary>
+        /// Updates a collector for a sparse structural notification.
+        /// </summary>
+        private void _changeSparseCollector(Collector collector, EntityGraph entityGraph, bool init, Type componentType)
+        {
+            var matcher = collector.Matcher;
+            var entityId = entityGraph.EntityId;
+            var alreadyCollected = _isAlreadyCollected(collector, entityId, init);
+
+            if (!matcher.IsRelevantComponent(componentType))
+            {
+                if (alreadyCollected && RelevanceGate(collector, matcher, componentType))
+                    collector.MarkChanged(entityId);
+                return;
+            }
+
+            var isMatched = !entityGraph.WishDestroy && _isMatched(entityGraph, matcher, entityId);
+            _applyCollectorMatchState(collector, entityId, isMatched, init, componentType, alreadyCollected);
+        }
+
+        /// <summary>
+        /// Updates a collector for a dense structural migration using source/destination archetype set difference.
+        /// </summary>
+        private void _changeDenseCollector(Collector collector, EntityGraph entityGraph, bool isAdd, bool init,
+            Type componentType)
+        {
+            var matcher = collector.Matcher;
+            var entityId = entityGraph.EntityId;
+            var alreadyCollected = _isAlreadyCollected(collector, entityId, init);
+
+            if (entityGraph.WishDestroy)
+            {
+                _applyCollectorMatchState(collector, entityId, false, init, componentType, alreadyCollected);
+                return;
+            }
+
+            var componentManager = _componentManager();
+            var destination = componentManager.GetEntityArchetype(entityId);
+            _refreshDenseArchetypeMembership(collector.MatchingArchetypeIds, matcher, destination);
+
+            var sourceSignature = isAdd
+                ? RemoveOneDenseComponent(destination.Signature, componentType)
+                : AddOneDenseComponent(destination.Signature, componentType);
+
+            var sourceDenseMatched = CouldMatchDenseSignature(matcher, sourceSignature);
+            if (TryGetArchetype(sourceSignature, out var source))
+            {
+                _refreshDenseArchetypeMembership(collector.MatchingArchetypeIds, matcher, source);
+                sourceDenseMatched = collector.MatchingArchetypeIds.Contains(source.Id);
+            }
+
+            var destinationDenseMatched = collector.MatchingArchetypeIds.Contains(destination.Id);
+            var relevant = matcher.IsRelevantComponent(componentType);
+
+            if (matcher is not EntityMatcher && relevant)
+            {
+                var customMatched = _isMatched(entityGraph, matcher, entityId);
+                _applyCollectorMatchState(collector, entityId, customMatched, init, componentType, alreadyCollected);
+                return;
+            }
+
+            if (sourceDenseMatched == destinationDenseMatched)
+            {
+                if (alreadyCollected && RelevanceGate(collector, matcher, componentType))
+                    collector.MarkChanged(entityId);
+                return;
+            }
+
+            var isMatched = destinationDenseMatched && _isMatched(entityGraph, matcher, entityId);
+            _applyCollectorMatchState(collector, entityId, isMatched, init, componentType, alreadyCollected);
+        }
+
+        /// <summary>
+        /// Applies a resolved match state to the collector's pending buffers.
+        /// </summary>
+        private void _applyCollectorMatchState(Collector collector, ulong entityId, bool isMatched, bool init,
+            Type componentType)
+        {
+            var alreadyCollected = _isAlreadyCollected(collector, entityId, init);
+            _applyCollectorMatchState(collector, entityId, isMatched, init, componentType, alreadyCollected);
+        }
+
+        /// <summary>
+        /// Applies a resolved match state to the collector's pending buffers.
+        /// </summary>
+        private static void _applyCollectorMatchState(Collector collector, ulong entityId, bool isMatched, bool init,
+            Type componentType, bool alreadyCollected)
+        {
+            var matcher = collector.Matcher;
 
             // Membership unchanged, but match-relevant composition changed while still collected.
             if (!(isMatched ^ alreadyCollected))
@@ -502,6 +625,152 @@ namespace CoreECS.Managers
         }
 
         /// <summary>
+        /// Determines whether an entity is already considered collected in the current pending phase.
+        /// </summary>
+        private static bool _isAlreadyCollected(Collector collector, ulong entityId, bool init)
+        {
+            // Pending match/clash buffers can make an entity "already collected" before it
+            // reaches Collected, or keep it in Collected after it is scheduled to leave.
+            return !init &&
+                (collector.ContainsInBuffer(COLLECTED_BUFFER_INDEX, entityId) ||
+                 collector.ContainsInBuffer(CHANGE_MATCHING_BUFFER_INDEX, entityId)) &&
+                !collector.ContainsInBuffer(CHANGE_CLASHING_BUFFER_INDEX, entityId);
+        }
+
+        /// <summary>
+        /// Resolves the component manager lazily after world construction has registered all managers.
+        /// </summary>
+        private ComponentManager _componentManager()
+        {
+            return m_componentManager ??= World.GetManager<ComponentManager>();
+        }
+
+        /// <summary>
+        /// Gets the dense archetype membership cache for <paramref name="matcher"/>.
+        /// </summary>
+        private HashSet<int> _getMatchingArchetypeIds(IEntityMatcher matcher)
+        {
+            if (m_matchingArchetypesByMatcher.TryGetValue(matcher, out var archetypeIds))
+                return archetypeIds;
+
+            archetypeIds = new HashSet<int>();
+            var archetypes = _componentManager().ArchetypeRegistry.Archetypes;
+            for (var i = 0; i < archetypes.Count; i++)
+            {
+                var archetype = archetypes[i];
+                if (CouldMatchDenseSignature(matcher, archetype.Signature))
+                    archetypeIds.Add(archetype.Id);
+            }
+
+            m_matchingArchetypesByMatcher.Add(matcher, archetypeIds);
+            return archetypeIds;
+        }
+
+        /// <summary>
+        /// Refreshes one archetype id in a matcher dense membership cache.
+        /// </summary>
+        private static void _refreshDenseArchetypeMembership(HashSet<int> archetypeIds, IEntityMatcher matcher,
+            Archetype archetype)
+        {
+            if (CouldMatchDenseSignature(matcher, archetype.Signature))
+                archetypeIds.Add(archetype.Id);
+            else
+                archetypeIds.Remove(archetype.Id);
+        }
+
+        /// <summary>
+        /// Returns whether a matcher can match an archetype before sparse proxy checks.
+        /// </summary>
+        private static bool CouldMatchDenseSignature(IEntityMatcher matcher, ArchetypeSignature signature)
+        {
+            if (matcher is EntityMatcher entityMatcher)
+                return entityMatcher.CouldMatchDenseSignature(signature);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Finds an existing archetype by signature without creating a new one.
+        /// </summary>
+        private bool TryGetArchetype(ArchetypeSignature signature, out Archetype archetype)
+        {
+            var archetypes = _componentManager().ArchetypeRegistry.Archetypes;
+            for (var i = 0; i < archetypes.Count; i++)
+            {
+                archetype = archetypes[i];
+                if (archetype.Signature == signature)
+                    return true;
+            }
+
+            archetype = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Returns a signature with one dense component instance added.
+        /// </summary>
+        private static ArchetypeSignature AddOneDenseComponent(ArchetypeSignature signature, Type type)
+        {
+            var entries = signature.Entries;
+            var result = new List<ArchetypeEntry>(entries.Count + 1);
+            var found = false;
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.Type == type)
+                {
+                    result.Add(new ArchetypeEntry(type, entry.Count + 1));
+                    found = true;
+                }
+                else
+                {
+                    result.Add(entry);
+                }
+            }
+
+            if (!found)
+                result.Add(new ArchetypeEntry(type, 1));
+
+            return ArchetypeSignature.From(result.ToArray());
+        }
+
+        /// <summary>
+        /// Returns a signature with one dense component instance removed.
+        /// </summary>
+        private static ArchetypeSignature RemoveOneDenseComponent(ArchetypeSignature signature, Type type)
+        {
+            var entries = signature.Entries;
+            var result = new List<ArchetypeEntry>(entries.Count);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.Type == type)
+                {
+                    if (entry.Count > 1)
+                        result.Add(new ArchetypeEntry(type, entry.Count - 1));
+                }
+                else
+                {
+                    result.Add(entry);
+                }
+            }
+
+            return result.Count == 0 ? ArchetypeSignature.Empty : ArchetypeSignature.From(result.ToArray());
+        }
+
+        /// <summary>
+        /// Evaluates whether <paramref name="entityGraph"/> satisfies <paramref name="matcher"/>.
+        /// </summary>
+        private bool _isMatched(EntityGraph entityGraph, IEntityMatcher matcher, ulong entityId)
+        {
+            var compManager = _componentManager();
+            compManager.GetEntityMatchInputs(entityId, out var signature, out var sparseProxy);
+            return matcher.Matches(signature, sparseProxy);
+        }
+
+        /// <summary>
         /// Removes a collector from the manager's list.
         /// </summary>
         /// <param name="collector">The collector to remove</param>
@@ -511,6 +780,20 @@ namespace CoreECS.Managers
                 m_revisionTrackingCollectorCount -= 1;
 
             var removed = m_collectors.Remove(collector);
+            if (removed)
+            {
+                var matcherInUse = false;
+                for (var i = 0; i < m_collectors.Count; i++)
+                {
+                    if (!ReferenceEquals(m_collectors[i].Matcher, collector.Matcher)) continue;
+                    matcherInUse = true;
+                    break;
+                }
+
+                if (!matcherInUse)
+                    m_matchingArchetypesByMatcher.Remove(collector.Matcher);
+            }
+
             if (removed)
                 _releaseEntitySignalSubscriptionsIfUnused();
 
@@ -539,7 +822,7 @@ namespace CoreECS.Managers
 
             _ensureEntitySignalSubscriptions();
 
-            var c = new Collector(matcher, flag, this);
+            var c = new Collector(matcher, flag, this, _getMatchingArchetypeIds(matcher));
             m_collectors.Add(c);
             if (c.TrackRevisionChanged)
                 m_revisionTrackingCollectorCount += 1;
@@ -593,6 +876,7 @@ namespace CoreECS.Managers
             }
             
             m_collectors.Clear();
+            m_matchingArchetypesByMatcher.Clear();
             m_revisionTrackingCollectorCount = 0;
             _releaseEntitySignalSubscriptionsIfUnused();
             if (m_isSubscribedToEntitySignals)

@@ -95,14 +95,19 @@ namespace CoreECS.Managers
             
             if (m_allocatedId == ulong.MaxValue) throw new ApplicationException(
                 "No more entities can being allocated! Please consider restart application...");
-            
+
+            // Refuse to allocate into a read-locked (query-in-progress) empty archetype before mutating state.
+            m_compManager.EnsureCanPlaceNewEntity();
+
             var id = ++m_allocatedId;
             var graph = EntityGraph.Pool.Get();
             m_entityCaches.Add(id, graph);
             graph.Mask = mask;
             graph.EntityId = id;
             graph.WishDestroy = false;
-            
+
+            m_compManager.PlaceNewEntity(graph);
+
             return graph;
         }
         
@@ -131,18 +136,170 @@ namespace CoreECS.Managers
             Assertion.IsTrue(m_init);
             Assertion.IsFalse(m_shutdown);
             
-            if (m_entityCaches.Remove(entityId, out var graph))
+            if (m_entityCaches.TryGetValue(entityId, out var graph))
             {
+                // Refuse to mutate a read-locked (query-in-progress) archetype before any lifecycle mutation begins.
+                m_compManager.EnsureEntityRowMutable(graph);
+
                 graph.WishDestroy = true;
-                for (var i = 0; i < graph.RwComponents.Count; i++)
+                using (ListPool<IComponentRefCore>.Get(out var componentsToDestroy))
                 {
-                    m_compManager.DestroyComponent(graph.RwComponents[i]);
+                    m_compManager.GetEntityComponentCores(entityId, componentsToDestroy);
+                    for (var i = 0; i < componentsToDestroy.Count; i++)
+                    {
+                        m_compManager.DestroyComponent(componentsToDestroy[i]);
+                    }
                 }
-                graph.RwComponents.Clear();
+
+                m_compManager.RemoveEntityRow(graph);
+
+                m_entityCaches.Remove(entityId);
 
                 OnEntityLoseComp.Emit(in graph, (Type)null, static (h, g, t) => h(g, t));
                 EntityGraph.Pool.Release(graph);
             }
+        }
+
+        /// <summary>
+        /// Gets the component core references attached to the specified entity.
+        /// </summary>
+        /// <param name="entityId">The entity id to inspect</param>
+        /// <returns>Read-only component core references for matcher and entity access</returns>
+        internal IReadOnlyCollection<IComponentRefCore> GetComponentCores(ulong entityId)
+        {
+            var result = new List<IComponentRefCore>();
+            m_compManager.GetEntityComponentCores(entityId, result);
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the first component of type TComp attached to the specified entity.
+        /// </summary>
+        internal ComponentRef<TComp> GetComponent<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
+        {
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                for (var i = 0; i < cores.Count; i++)
+                {
+                    var r = cores[i];
+                    var loc = r.RefLocator;
+                    if (loc != null && loc.IsT(typeof(TComp))) return new ComponentRef<TComp>(r);
+                }
+            }
+
+            return default;
+        }
+
+        /// <summary>
+        /// Gets all components attached to the specified entity.
+        /// </summary>
+        internal ComponentRef[] GetComponents(ulong entityId)
+        {
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                var result = new ComponentRef[cores.Count];
+                for (var i = 0; i < cores.Count; i++) result[i] = new ComponentRef(cores[i]);
+
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Gets all components attached to the specified entity and appends them to the specified collection.
+        /// </summary>
+        internal int GetComponents(ulong entityId, ICollection<ComponentRef> results)
+        {
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                for (var i = 0; i < cores.Count; i++) results.Add(new ComponentRef(cores[i]));
+
+                return cores.Count;
+            }
+        }
+
+        /// <summary>
+        /// Gets all components of type TComp attached to the specified entity.
+        /// </summary>
+        internal ComponentRef<TComp>[] GetComponents<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
+        {
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            using (ListPool<ComponentRef<TComp>>.Get(out var builder))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                for (var i = 0; i < cores.Count; i++)
+                {
+                    var r = cores[i];
+                    var loc = r.RefLocator;
+                    if (loc != null && loc.IsT(typeof(TComp))) builder.Add(new ComponentRef<TComp>(r));
+                }
+
+                return builder.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// Gets all components of type TComp attached to the specified entity and appends them to the specified collection.
+        /// </summary>
+        internal int GetComponents<TComp>(ulong entityId, ICollection<ComponentRef<TComp>> results)
+            where TComp : struct, IComponent<TComp>
+        {
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                var collected = 0;
+                for (var i = 0; i < cores.Count; i++)
+                {
+                    var r = cores[i];
+                    var loc = r.RefLocator;
+                    if (loc != null && loc.IsT(typeof(TComp)))
+                    {
+                        collected += 1;
+                        results.Add(new ComponentRef<TComp>(r));
+                    }
+                }
+
+                return collected;
+            }
+        }
+
+        /// <summary>
+        /// Checks whether the specified entity has a component of type TComp.
+        /// </summary>
+        internal bool HasComponent<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
+        {
+            return GetComponent<TComp>(entityId).NotNull;
+        }
+
+        /// <summary>
+        /// Counts the instances of type TComp attached to the specified entity.
+        /// </summary>
+        internal int GetComponentCount<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
+        {
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                var count = 0;
+                for (var i = 0; i < cores.Count; i++)
+                {
+                    var loc = cores[i].RefLocator;
+                    if (loc != null && loc.IsT(typeof(TComp))) count += 1;
+                }
+
+                return count;
+            }
+        }
+
+        /// <summary>
+        /// Resolves an entity id to its graph without lifecycle assertions, used as the component manager's resolver.
+        /// </summary>
+        /// <param name="entityId">Entity id to resolve.</param>
+        /// <returns>The entity graph, or null when absent.</returns>
+        private EntityGraph ResolveEntityGraph(ulong entityId)
+        {
+            return m_entityCaches.TryGetValue(entityId, out var graph) ? graph : null;
         }
 
         /// <summary>
@@ -154,9 +311,7 @@ namespace CoreECS.Managers
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;
-            
-            gs.RwComponents.Add(component);
-            
+
             OnEntityGotComp.Emit(in gs, compType, static (h, g, t) => h(g, t));
         }
         
@@ -169,8 +324,7 @@ namespace CoreECS.Managers
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;
-            gs.RwComponents.Remove(component);
-            
+
             OnEntityLoseComp.Emit(in gs, compType, static (h, g, t) => h(g, t));
         }
 
@@ -197,6 +351,7 @@ namespace CoreECS.Managers
             m_compManager.OnComponentCreated.Add(_onComponentAdded);
             m_compManager.OnComponentRemoved.Add(_onComponentRemoved);
             m_compManager.OnComponentChanged.Add(_onComponentChanged);
+            m_compManager.BindEntityGraphResolver(ResolveEntityGraph);
 
             m_init = true;
         }
@@ -224,7 +379,6 @@ namespace CoreECS.Managers
             
             foreach (var ec in m_entityCaches.Values)
             {
-                ec.RwComponents.Clear();
                 EntityGraph.Pool.Release(ec);
             }
             

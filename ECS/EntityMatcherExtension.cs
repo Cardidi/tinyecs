@@ -455,6 +455,21 @@ namespace CoreECS
         }
 
         /// <summary>
+        /// Creates a streaming <see cref="EntityQuery"/> for <paramref name="matcher"/> in the specified world.
+        /// Enumeration read-locks candidate archetypes until the enumerator is disposed.
+        /// </summary>
+        /// <param name="matcher">Matcher used to filter streamed entities.</param>
+        /// <param name="world">World that owns queried entities.</param>
+        /// <returns>A streaming entity query.</returns>
+        /// <exception cref="System.InvalidOperationException">Thrown when the world is not ready or managers are unavailable.</exception>
+        /// <exception cref="System.ArgumentNullException">Thrown when <paramref name="matcher"/> or <paramref name="world"/> is null.</exception>
+        public static EntityQuery Query(this IEntityMatcher matcher, World world)
+        {
+            CoreECS.Utils.Assertion.ArgumentNotNull(world, nameof(world));
+            return world.Query(matcher);
+        }
+
+        /// <summary>
         /// Appends IDs of entities that match <paramref name="matcher"/> to <paramref name="result"/>.
         /// Existing items in <paramref name="result"/> are preserved.
         /// </summary>

@@ -172,7 +172,8 @@ namespace CoreECS
         /// <typeparam name="T">Component type to destroy, must be a struct implementing IComponent&lt;T&gt;</typeparam>
         public void DestroyComponent<T>() where T : struct, IComponent<T>
         {
-            var component = _accessGraph().GetComponent<T>();
+            _accessGraph();
+            var component = m_entityManager.GetComponent<T>(m_entityId);
             Assertion.IsTrue(component.NotNull, "Entity does not have a component of type T.");
             _accessComponentManager().DestroyComponent(component.Core);
         }
@@ -184,7 +185,8 @@ namespace CoreECS
         /// <returns>A typed reference to the component</returns>
         public ComponentRef<TComp> GetComponent<TComp>() where TComp : struct, IComponent<TComp>
         {
-            return _accessGraph().GetComponent<TComp>();
+            _accessGraph();
+            return m_entityManager.GetComponent<TComp>(m_entityId);
         }
 
         /// <summary>
@@ -193,7 +195,8 @@ namespace CoreECS
         /// <returns>An array of typeless component references</returns>
         public ComponentRef[] GetComponents()
         {
-            return _accessGraph().GetComponents();
+            _accessGraph();
+            return m_entityManager.GetComponents(m_entityId);
         }
 
         /// <summary>
@@ -203,7 +206,8 @@ namespace CoreECS
         /// <returns>The number of components added to the collection</returns>
         public int GetComponents(ICollection<ComponentRef> results)
         {
-            return _accessGraph().GetComponents(results);
+            _accessGraph();
+            return m_entityManager.GetComponents(m_entityId, results);
         }
 
         /// <summary>
@@ -213,7 +217,8 @@ namespace CoreECS
         /// <returns>An array of typed component references</returns>
         public ComponentRef<TComp>[] GetComponents<TComp>() where TComp : struct, IComponent<TComp>
         {
-            return _accessGraph().GetComponents<TComp>();
+            _accessGraph();
+            return m_entityManager.GetComponents<TComp>(m_entityId);
         }
 
         /// <summary>
@@ -224,7 +229,8 @@ namespace CoreECS
         /// <returns>The number of components added to the collection</returns>
         public int GetComponents<TComp>(ICollection<ComponentRef<TComp>> results) where TComp : struct, IComponent<TComp>
         {
-            return _accessGraph().GetComponents(results);
+            _accessGraph();
+            return m_entityManager.GetComponents(m_entityId, results);
         }
         
         /// <summary>
@@ -234,7 +240,19 @@ namespace CoreECS
         /// <returns>True if the entity has the component, false otherwise</returns>
         public bool HasComponent<T>() where T : struct, IComponent<T>
         {
-            return _accessGraph().HasComponent<T>();
+            _accessGraph();
+            return m_entityManager.HasComponent<T>(m_entityId);
+        }
+
+        /// <summary>
+        /// Counts how many instances of type T are attached to this entity.
+        /// </summary>
+        /// <typeparam name="T">Component type to count, must be a struct implementing IComponent&lt;T&gt;</typeparam>
+        /// <returns>The number of attached instances of type T</returns>
+        public int GetComponentCount<T>() where T : struct, IComponent<T>
+        {
+            _accessGraph();
+            return m_entityManager.GetComponentCount<T>(m_entityId);
         }
 
         /// <summary>
