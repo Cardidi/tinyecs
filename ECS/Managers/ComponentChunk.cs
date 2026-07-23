@@ -209,6 +209,31 @@ namespace CoreECS.Managers
                 m_denseColumns[i].DestroyAt(row);
         }
 
+        /// <summary>
+        /// Appends every live component reference core stored at <paramref name="row"/> (dense columns first,
+        /// then sparse proxy handles) to <paramref name="results"/>.
+        /// </summary>
+        /// <param name="row">Row index whose component cores are collected.</param>
+        /// <param name="results">Target collection that receives the reference cores.</param>
+        internal void CollectRowCores(int row, ICollection<IComponentRefCore> results)
+        {
+            for (var i = 0; i < m_denseColumns.Length; i++)
+            {
+                var core = m_denseColumns[i].GetCoreAt(row);
+                if (core != null) results.Add(core);
+            }
+
+            var proxy = Proxies[row];
+            if (proxy == null) return;
+
+            var handles = proxy.Handles;
+            for (var i = 0; i < handles.Count; i++)
+            {
+                var handle = handles[i];
+                if (handle != null) results.Add(handle);
+            }
+        }
+
         private DenseColumn GetColumn(Type type, int instanceIndex)
         {
             if (!m_columnIndexByTypeInstance.TryGetValue((type, instanceIndex), out var index))

@@ -903,9 +903,30 @@ namespace CoreECS.Managers
         internal void PlaceNewEntity(EntityGraph graph)
         {
             var empty = m_registry.Empty;
+            TryBeginDenseStructuralChange(empty);
             var global = empty.AddEntityRow(graph.EntityId, out _, out _);
             graph.ArchetypeId = empty.Id;
             graph.Row = global;
+        }
+
+        /// <summary>
+        /// Verifies that a fresh entity may be placed into the empty archetype without violating a read lock.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown when the empty archetype is read-locked.</exception>
+        internal void EnsureCanPlaceNewEntity()
+        {
+            TryBeginDenseStructuralChange(m_registry.Empty);
+        }
+
+        /// <summary>
+        /// Verifies that the entity's current archetype row may be mutated without violating a read lock.
+        /// </summary>
+        /// <param name="graph">Entity graph whose current archetype is checked.</param>
+        /// <exception cref="InvalidOperationException">Thrown when the entity's archetype is read-locked.</exception>
+        internal void EnsureEntityRowMutable(EntityGraph graph)
+        {
+            if (graph.Row < 0) return;
+            TryBeginDenseStructuralChange(m_registry.Get(graph.ArchetypeId));
         }
 
         /// <summary>
@@ -917,6 +938,7 @@ namespace CoreECS.Managers
             if (graph.Row < 0) return;
 
             var archetype = m_registry.Get(graph.ArchetypeId);
+            TryBeginDenseStructuralChange(archetype);
             var moved = archetype.RemoveEntityRow(graph.Row, out var movedNewGlobalRow);
             if (moved != 0)
             {
@@ -941,6 +963,27 @@ namespace CoreECS.Managers
                     "Cannot perform a dense structural change while the archetype is read-locked; use a CommandBuffer to defer the change.");
 
             return true;
+        }
+
+        /// <summary>
+        /// Appends the reference cores of every component (dense columns and sparse proxy handles) attached to
+        /// <paramref name="entityId"/> at its current archetype row to <paramref name="results"/>.
+        /// This is the authoritative membership source backing the entity facade accessors.
+        /// </summary>
+        /// <param name="entityId">Entity whose component cores are collected.</param>
+        /// <param name="results">Target collection that receives the reference cores.</param>
+        /// <returns>The number of cores appended.</returns>
+        internal int GetEntityComponentCores(ulong entityId, ICollection<IComponentRefCore> results)
+        {
+            var graph = m_graphResolver?.Invoke(entityId);
+            if (graph == null || graph.Row < 0) return 0;
+
+            var archetype = m_registry.Get(graph.ArchetypeId);
+            archetype.Locate(graph.Row, out var chunk, out var local);
+
+            var before = results.Count;
+            chunk.CollectRowCores(local, results);
+            return results.Count - before;
         }
 
         /// <summary>

@@ -78,11 +78,6 @@ namespace CoreECS.Managers
         private readonly Dictionary<ulong, EntityGraph> m_entityCaches = new();
 
         /// <summary>
-        /// Temporary composition index used until archetype chunk routing owns component membership.
-        /// </summary>
-        private readonly Dictionary<ulong, List<IComponentRefCore>> m_entityComponents = new();
-
-        /// <summary>
         /// Gets a read-only view of the entity caches.
         /// </summary>
         public IReadOnlyDictionary<ulong, EntityGraph> EntityCaches => m_entityCaches;
@@ -100,11 +95,13 @@ namespace CoreECS.Managers
             
             if (m_allocatedId == ulong.MaxValue) throw new ApplicationException(
                 "No more entities can being allocated! Please consider restart application...");
-            
+
+            // Refuse to allocate into a read-locked (query-in-progress) empty archetype before mutating state.
+            m_compManager.EnsureCanPlaceNewEntity();
+
             var id = ++m_allocatedId;
             var graph = EntityGraph.Pool.Get();
             m_entityCaches.Add(id, graph);
-            m_entityComponents.Add(id, new List<IComponentRefCore>());
             graph.Mask = mask;
             graph.EntityId = id;
             graph.WishDestroy = false;
@@ -141,11 +138,14 @@ namespace CoreECS.Managers
             
             if (m_entityCaches.TryGetValue(entityId, out var graph))
             {
+                // Refuse to mutate a read-locked (query-in-progress) archetype before any lifecycle mutation begins.
+                m_compManager.EnsureEntityRowMutable(graph);
+
                 graph.WishDestroy = true;
-                if (m_entityComponents.TryGetValue(entityId, out var components))
+                using (ListPool<IComponentRefCore>.Get(out var componentsToDestroy))
                 {
-                    var componentsToDestroy = components.ToArray();
-                    for (var i = 0; i < componentsToDestroy.Length; i++)
+                    m_compManager.GetEntityComponentCores(entityId, componentsToDestroy);
+                    for (var i = 0; i < componentsToDestroy.Count; i++)
                     {
                         m_compManager.DestroyComponent(componentsToDestroy[i]);
                     }
@@ -154,7 +154,6 @@ namespace CoreECS.Managers
                 m_compManager.RemoveEntityRow(graph);
 
                 m_entityCaches.Remove(entityId);
-                m_entityComponents.Remove(entityId);
 
                 OnEntityLoseComp.Emit(in graph, (Type)null, static (h, g, t) => h(g, t));
                 EntityGraph.Pool.Release(graph);
@@ -168,8 +167,9 @@ namespace CoreECS.Managers
         /// <returns>Read-only component core references for matcher and entity access</returns>
         internal IReadOnlyCollection<IComponentRefCore> GetComponentCores(ulong entityId)
         {
-            if (m_entityComponents.TryGetValue(entityId, out var components)) return components;
-            return Array.Empty<IComponentRefCore>();
+            var result = new List<IComponentRefCore>();
+            m_compManager.GetEntityComponentCores(entityId, result);
+            return result;
         }
 
         /// <summary>
@@ -177,13 +177,15 @@ namespace CoreECS.Managers
         /// </summary>
         internal ComponentRef<TComp> GetComponent<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
         {
-            if (!m_entityComponents.TryGetValue(entityId, out var components)) return default;
-            
-            for (var i = 0; i < components.Count; i++)
+            using (ListPool<IComponentRefCore>.Get(out var cores))
             {
-                var r = components[i];
-                var loc = r.RefLocator;
-                if (loc.IsT(typeof(TComp))) return new ComponentRef<TComp>(r);
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                for (var i = 0; i < cores.Count; i++)
+                {
+                    var r = cores[i];
+                    var loc = r.RefLocator;
+                    if (loc != null && loc.IsT(typeof(TComp))) return new ComponentRef<TComp>(r);
+                }
             }
 
             return default;
@@ -194,12 +196,14 @@ namespace CoreECS.Managers
         /// </summary>
         internal ComponentRef[] GetComponents(ulong entityId)
         {
-            if (!m_entityComponents.TryGetValue(entityId, out var components)) return Array.Empty<ComponentRef>();
-            
-            var result = new ComponentRef[components.Count];
-            for (var i = 0; i < components.Count; i++) result[i] = new ComponentRef(components[i]);
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                var result = new ComponentRef[cores.Count];
+                for (var i = 0; i < cores.Count; i++) result[i] = new ComponentRef(cores[i]);
 
-            return result;
+                return result;
+            }
         }
 
         /// <summary>
@@ -207,11 +211,13 @@ namespace CoreECS.Managers
         /// </summary>
         internal int GetComponents(ulong entityId, ICollection<ComponentRef> results)
         {
-            if (!m_entityComponents.TryGetValue(entityId, out var components)) return 0;
-            
-            for (var i = 0; i < components.Count; i++) results.Add(new ComponentRef(components[i]));
+            using (ListPool<IComponentRefCore>.Get(out var cores))
+            {
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                for (var i = 0; i < cores.Count; i++) results.Add(new ComponentRef(cores[i]));
 
-            return components.Count;
+                return cores.Count;
+            }
         }
 
         /// <summary>
@@ -219,15 +225,15 @@ namespace CoreECS.Managers
         /// </summary>
         internal ComponentRef<TComp>[] GetComponents<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
         {
-            if (!m_entityComponents.TryGetValue(entityId, out var components)) return Array.Empty<ComponentRef<TComp>>();
-            
+            using (ListPool<IComponentRefCore>.Get(out var cores))
             using (ListPool<ComponentRef<TComp>>.Get(out var builder))
             {
-                for (var i = 0; i < components.Count; i++)
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                for (var i = 0; i < cores.Count; i++)
                 {
-                    var r = components[i];
+                    var r = cores[i];
                     var loc = r.RefLocator;
-                    if (loc.IsT(typeof(TComp))) builder.Add(new ComponentRef<TComp>(r));
+                    if (loc != null && loc.IsT(typeof(TComp))) builder.Add(new ComponentRef<TComp>(r));
                 }
 
                 return builder.ToArray();
@@ -240,21 +246,23 @@ namespace CoreECS.Managers
         internal int GetComponents<TComp>(ulong entityId, ICollection<ComponentRef<TComp>> results)
             where TComp : struct, IComponent<TComp>
         {
-            if (!m_entityComponents.TryGetValue(entityId, out var components)) return 0;
-            
-            var collected = 0;
-            for (var i = 0; i < components.Count; i++)
+            using (ListPool<IComponentRefCore>.Get(out var cores))
             {
-                var r = components[i];
-                var loc = r.RefLocator;
-                if (loc.IsT(typeof(TComp)))
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                var collected = 0;
+                for (var i = 0; i < cores.Count; i++)
                 {
-                    collected += 1;
-                    results.Add(new ComponentRef<TComp>(r));
+                    var r = cores[i];
+                    var loc = r.RefLocator;
+                    if (loc != null && loc.IsT(typeof(TComp)))
+                    {
+                        collected += 1;
+                        results.Add(new ComponentRef<TComp>(r));
+                    }
                 }
-            }
 
-            return collected;
+                return collected;
+            }
         }
 
         /// <summary>
@@ -270,16 +278,18 @@ namespace CoreECS.Managers
         /// </summary>
         internal int GetComponentCount<TComp>(ulong entityId) where TComp : struct, IComponent<TComp>
         {
-            if (!m_entityComponents.TryGetValue(entityId, out var components)) return 0;
-
-            var count = 0;
-            for (var i = 0; i < components.Count; i++)
+            using (ListPool<IComponentRefCore>.Get(out var cores))
             {
-                var loc = components[i].RefLocator;
-                if (loc != null && loc.IsT(typeof(TComp))) count += 1;
-            }
+                m_compManager.GetEntityComponentCores(entityId, cores);
+                var count = 0;
+                for (var i = 0; i < cores.Count; i++)
+                {
+                    var loc = cores[i].RefLocator;
+                    if (loc != null && loc.IsT(typeof(TComp))) count += 1;
+                }
 
-            return count;
+                return count;
+            }
         }
 
         /// <summary>
@@ -301,9 +311,7 @@ namespace CoreECS.Managers
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;
-            
-            m_entityComponents[entityId].Add(component);
-            
+
             OnEntityGotComp.Emit(in gs, compType, static (h, g, t) => h(g, t));
         }
         
@@ -316,9 +324,7 @@ namespace CoreECS.Managers
         {
             var gs = GetEntity(entityId);
             if (gs == null) return;
-            if (m_entityComponents.TryGetValue(entityId, out var components))
-                components.Remove(component);
-            
+
             OnEntityLoseComp.Emit(in gs, compType, static (h, g, t) => h(g, t));
         }
 
@@ -377,7 +383,6 @@ namespace CoreECS.Managers
             }
             
             m_entityCaches.Clear();
-            m_entityComponents.Clear();
         }
 
         /// <summary>
