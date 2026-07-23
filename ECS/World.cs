@@ -220,6 +220,23 @@ namespace CoreECS
         }
 
         /// <summary>
+        /// Rents a command buffer for deferring component operations until query read locks are released.
+        /// </summary>
+        /// <param name="flag">Controls how pending commands are handled when the buffer is disposed.</param>
+        /// <returns>A rented command buffer. Dispose it to return it to the pool.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the world is not ready or required managers are unavailable.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="flag"/> is not supported.</exception>
+        public ICommandBuffer RentCommandBuffer(CommandBufferFlag flag = CommandBufferFlag.Default)
+        {
+            Assertion.IsTrue(Ready, "World is not ready");
+
+            if (Entity == null || Component == null)
+                throw new InvalidOperationException("Core ECS managers are not available");
+
+            return CommandBuffer.Rent(this, flag);
+        }
+
+        /// <summary>
         /// Appends entity IDs that match the specified matcher to <paramref name="result"/>.
         /// Existing items in <paramref name="result"/> are preserved.
         /// </summary>

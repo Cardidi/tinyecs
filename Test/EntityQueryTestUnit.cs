@@ -127,5 +127,32 @@ namespace CoreECS.Test
                 world.Shutdown();
             }
         }
+
+        [Test]
+        public void CommandBuffer_DeferDenseCreate_DuringQuery_ThenPlayback()
+        {
+            var world = new World();
+            world.Startup();
+            try
+            {
+                var e = world.CreateEntity();
+                e.CreateComponent<DenseProbe>();
+                var matcher = EntityMatcher.With.OfAll<DenseProbe>();
+
+                using (var buf = world.RentCommandBuffer(CommandBufferFlag.MustManualPlaybackOnDispose))
+                {
+                    foreach (var hit in world.Query(matcher))
+                        buf.CreateComponentDefer<DenseProbe>(hit);
+
+                    buf.Playback();
+                }
+
+                Assert.That(e.GetComponentCount<DenseProbe>(), Is.EqualTo(2));
+            }
+            finally
+            {
+                world.Shutdown();
+            }
+        }
     }
 }
