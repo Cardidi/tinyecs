@@ -16,8 +16,8 @@
 - Allow **multiple instances** of the same component type per entity on both backends.
 - Archetype signature for dense components includes **multiplicities** `(Type × Count)`.
 - Unified matcher semantics: e.g. `OfAll<TSparse, TDense>` matches entities that have both.
-- Expose efficient **`EntityQuery`** over matching archetypes with **read locks**.
-- Keep **`EntityCollector`** notification-driven for sparse/revision changes, with archetype indexing for dense structural membership (hybrid).
+- Expose efficient **`EntityQuery`** as a streaming **`IEnumerable<Entity>`** over matching archetypes with **read locks** bound to enumeration; keep fill-into-`ICollection` overloads as convenience wrappers.
+- Keep **`EntityCollector`** notification-driven for sparse/revision changes, with archetype indexing for dense structural membership (hybrid). Split Query from Collector.
 
 ### Non-goals
 
@@ -47,7 +47,8 @@
 | Collector locks | **Does not** hold archetype read locks |
 | Deferred API | Caller **rents** `IDisposable` command buffer; buffer owns `*Defer` APIs; must `Playback()` before `Dispose` or throw |
 | Immediate mutate while locked | Throw (must use buffer) |
-| Query naming | **`EntityQuery`** (fill-into-collection + disposable locked scope) |
+| Query API | **`EntityQuery`**: primary = `IEnumerable<Entity>` (yield each match); retain fill-into-`ICollection` overloads as wrappers; split from Collector |
+| Query locks | Read-lock matched archetypes for the enumeration lifetime (`GetEnumerator`…`Dispose`) |
 | Collector strategy | Hybrid **C**: dense membership via archetype index; sparse + RW/revision via notifications |
 | Matcher | Keep fluent `OfAll`/`OfAny`/`OfNone`; replace list-based `ComponentFilter` as primary eval with archetype + proxy `Matches` |
 | Rename Store | Not in this work |
@@ -68,7 +69,8 @@ EntityGraph
 ├── Mask, Generation, WishDestroy
 └── ArchetypeId + Row  (no RwComponents)
 
-EntityQuery (read-locks matched archetypes)
+EntityQuery : IEnumerable<Entity> (+ IDisposable enumerator / query object)
+  └── read-locks matched archetypes while enumerating
 EntityCollector (signals + dense archetype membership index; no read locks)
 CommandBuffer (rented, IDisposable; Playback then Dispose)
 ```
@@ -118,9 +120,10 @@ CommandBuffer (rented, IDisposable; Playback then Dispose)
 
 ### Read locks
 
-- `EntityQuery` acquires read locks on archetypes it scans for the duration of:
-  - filling an `ICollection` result, or
-  - an `EntityQuery` disposable scope (`using`).
+- `EntityQuery` acquires read locks on archetypes it scans for the **enumeration lifetime**:
+  - Primary API is streaming `IEnumerable<Entity>`: as soon as a row matches (dense + optional Proxy filter), yield one `Entity`.
+  - Locks are taken when enumeration starts and released when the enumerator/query is **disposed** (`foreach` disposes the enumerator).
+  - Fill-into-`ICollection` overloads are convenience wrappers: enumerate under the same lock rules, then return (locks released when the helper’s enumeration ends).
 - While read-locked, **dense** create/destroy/count-changing operations that would migrate entities **throw**.
 - **Sparse** create/destroy remains allowed (Store + Proxy only).
 
@@ -164,16 +167,32 @@ using (var buf = world.RentCommandBuffer()) // IDisposable, pooled
 
 ## 7. EntityQuery (split from Collector)
 
-`EntityQuery` is the eager scan/iteration API. It is **not** part of `EntityCollector`.
+`EntityQuery` is the scan/iteration API. It is **not** part of `EntityCollector` and must not share Flush/buffer semantics with collectors.
 
-| API shape | Behavior |
-|-----------|----------|
-| Fill collection (existing style) | Lock matched archetypes only while enumerating/filling; locks released when call returns |
-| Disposable `EntityQuery` scope | `using` holds read locks until dispose; safe for interleaved component reads |
+### Primary: `IEnumerable<Entity>`
 
-Both share the same matching rules (`IEntityMatcher`). Extensions like `matcher.Query(world, list)` should route through `EntityQuery`, not through collector buffers.
+```csharp
+foreach (var entity in world.Query(matcher)) // or matcher.Query(world)
+{
+    // Each matching entity is produced when found (lazy over archetypes/chunks).
+    // Read locks are held for the duration of this enumeration.
+}
+```
 
-During a locked `EntityQuery`, callers that need dense structural changes must rent a `CommandBuffer`, enqueue Defer commands, end the query (release locks), then `Playback`.
+Requirements:
+
+- Implement streaming enumeration: advance archetype/chunk cursors; on match, `yield` / return one `Entity`.
+- Enumerator (and/or query object) must be **`IDisposable`** so locks are released reliably when enumeration ends or is abandoned.
+- Matching rules are the same `IEntityMatcher` rules (dense archetype candidates + sparse Proxy secondary filter).
+
+### Secondary: fill `ICollection` overloads
+
+- Keep existing-style `Query(matcher, ICollection<ulong|Entity>)` (and matcher extensions) as **wrappers** over the enumerable path.
+- They must not reintroduce a separate matching implementation.
+
+### Interaction with structural changes
+
+During an active (locked) `EntityQuery`, callers that need dense structural changes must rent a `CommandBuffer`, enqueue Defer commands, **end the enumeration** (release locks), then `Playback`.
 
 ---
 
@@ -237,7 +256,8 @@ Explicit exceptions (no silent failure):
 - `OfAll` mixed sparse + dense.
 - Command buffer rent / Playback / dispose-without-playback throws.
 - Immediate dense mutate under `EntityQuery` lock throws.
-- `EntityQuery` fill vs disposable scope lock lifetime.
+- `EntityQuery` `IEnumerable` streaming + lock lifetime (including early `break` / dispose).
+- Fill-`ICollection` overloads delegate to the same matching/lock behavior.
 - Collector hybrid: dense migrate membership vs sparse notification vs RW Changed.
 
 ---
@@ -257,6 +277,7 @@ These may be chosen during implementation without changing the design intent:
 
 - Exact default chunk capacity.
 - Exact public names for buffer interface (`ICommandBuffer` vs similar) as long as rent + Defer + Playback + IDisposable semantics hold.
+- Exact public type name for the query enumerable (`EntityQuery` vs returning `IEnumerable<Entity>` directly) as long as streaming + disposable lock lifetime hold.
 - Whether obsolete `ComponentFilter(list)` remains as a temporary adapter.
 
 ---
